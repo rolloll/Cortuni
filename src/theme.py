@@ -167,7 +167,11 @@ def configure_ttk_style(root=None):
         "TButton", font=heading_bold, padding=(12, 6), borderwidth=1,
         background=t["bg"], foreground=t["text"], relief="flat",
     )
-    style.map("TButton", background=[("active", t["neutral_200"])])
+    style.map(
+        "TButton",
+        background=[("disabled", t["neutral_100"]), ("active", t["neutral_200"])],
+        foreground=[("disabled", t["neutral_500"])],
+    )
 
     style.configure(
         "Primary.TButton", font=heading_bold, padding=(16, 7), borderwidth=1,
@@ -175,8 +179,9 @@ def configure_ttk_style(root=None):
     )
     style.map(
         "Primary.TButton",
-        background=[("pressed", t["accent_800"]), ("active", t["accent_600"])],
-        bordercolor=[("!disabled", t["accent"])],
+        background=[("disabled", t["neutral_200"]), ("pressed", t["accent_800"]), ("active", t["accent_600"])],
+        foreground=[("disabled", t["neutral_500"])],
+        bordercolor=[("disabled", t["divider"]), ("!disabled", t["accent"])],
     )
 
     style.configure(
@@ -185,7 +190,8 @@ def configure_ttk_style(root=None):
     )
     style.map(
         "Secondary.TButton",
-        background=[("pressed", t["neutral_300"]), ("active", t["neutral_200"])],
+        background=[("disabled", t["neutral_100"]), ("pressed", t["neutral_300"]), ("active", t["neutral_200"])],
+        foreground=[("disabled", t["neutral_500"])],
     )
 
     style.configure(
@@ -194,7 +200,8 @@ def configure_ttk_style(root=None):
     )
     style.map(
         "Ghost.TButton",
-        background=[("pressed", t["accent_200"]), ("active", t["accent_100"])],
+        background=[("disabled", t["bg"]), ("pressed", t["accent_200"]), ("active", t["accent_100"])],
+        foreground=[("disabled", t["neutral_500"])],
     )
 
     # 세그먼트 컨트롤(widgets.Segmented)이 켜짐/꺼짐 상태를 토글하는 버튼 스타일
@@ -202,13 +209,21 @@ def configure_ttk_style(root=None):
         "SegOn.TButton", font=body, padding=(10, 6), borderwidth=0,
         background=t["accent"], foreground=t["bg"], relief="flat",
     )
-    style.map("SegOn.TButton", background=[("active", t["accent"])])
+    style.map(
+        "SegOn.TButton",
+        background=[("disabled", t["neutral_300"]), ("active", t["accent"])],
+        foreground=[("disabled", t["neutral_600"])],
+    )
 
     style.configure(
         "SegOff.TButton", font=body, padding=(10, 6), borderwidth=0,
         background=t["bg"], foreground=t["text"], relief="flat",
     )
-    style.map("SegOff.TButton", background=[("active", t["neutral_200"])])
+    style.map(
+        "SegOff.TButton",
+        background=[("disabled", t["bg"]), ("active", t["neutral_200"])],
+        foreground=[("disabled", t["neutral_500"])],
+    )
 
     # 입력창
     style.configure(
@@ -219,6 +234,7 @@ def configure_ttk_style(root=None):
         "TEntry",
         bordercolor=[("focus", t["accent"]), ("!focus", t["divider"])],
         fieldbackground=[("disabled", t["bg"])],
+        foreground=[("disabled", t["neutral_500"])],
     )
 
     style.configure(

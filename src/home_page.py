@@ -136,6 +136,12 @@ class HomePage(ttk.Frame):
 
     def refresh_theme(self):
         t = theme.tokens()
+        # drop_zone은 고정 틴트(accent_100)로 만들어져 있어서, 테마가 바뀌면 그 틴트 자체를
+        # 현재 테마의 accent_100으로 다시 계산해줘야 한다(카드들은 틴트가 없어서 상관없음 -
+        # BlueprintFrame._bg_color()가 매번 theme.tokens()의 bg를 그대로 쓰기 때문).
+        self.drop_zone._tint = t["accent_100"]
+        self.drop_zone.refresh_theme()
+
         for key, widgets_ in self._cards.items():
             card = widgets_["card"]
             for w in (widgets_["kicker"], widgets_["title"], widgets_["body"]):
