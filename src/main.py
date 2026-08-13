@@ -30,8 +30,16 @@ DEFAULT_LANG = "ko"
 
 
 def resource_path(relative_path):
-    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
+    """실행 파일(_MEIPASS)이든 소스에서 바로 실행하든 assets/ 아래 리소스를 찾는다.
+
+    빌드 시 --add-data로 assets 폴더를 그대로 묶기 때문에, 소스에서 실행할 때도
+    같은 구조(프로젝트 루트의 assets/)를 그대로 사용한다.
+    """
+    if hasattr(sys, "_MEIPASS"):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, "assets", relative_path)
 
 
 class App(tk.Tk):
