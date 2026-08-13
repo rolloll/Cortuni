@@ -10,7 +10,7 @@ from adapters import open_docx, docx_paragraphs, save_docx
 from doc_split import split_paragraph_document
 
 
-def split_docx_file(path, chunk_size, output_dir):
+def split_docx_file(path, chunker, output_dir):
     base = os.path.splitext(os.path.basename(path))[0]
 
     def make_output_path(index):
@@ -18,7 +18,7 @@ def split_docx_file(path, chunk_size, output_dir):
 
     return split_paragraph_document(
         source_path=path,
-        chunk_size=chunk_size,
+        chunker=chunker,
         open_doc=open_docx,
         get_paragraphs=docx_paragraphs,
         save_doc=save_docx,

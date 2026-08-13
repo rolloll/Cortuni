@@ -1,4 +1,4 @@
-"""여러 파일(txt/docx/hwpx)을 순서대로 하나로 합치는 로직.
+"""여러 파일(txt/docx/hwpx)을 순서대로 하나로 병합하는 로직.
 
 entries는 다음 형태의 dict 리스트다.
     {
@@ -9,13 +9,15 @@ entries는 다음 형태의 dict 리스트다.
 
 blank_lines: 파일과 파일 사이에 넣을 빈 줄 수 (0 = 줄바꿈만, 1 = 빈 줄 하나, ...).
 header_bold / header_italic: 제목 줄에 적용할 서식
-(txt에는 서식 개념이 없으므로 무시된다).
+page_break: 파일 사이에 페이지 나누기를 넣을지 여부. hwpx/docx만 지원하며,
+(txt에는 서식·페이지 개념이 없으므로 둘 다 무시된다).
 """
 
 import copy
 import os
 
 from docx import Document
+from docx.enum.text import WD_BREAK
 from hwpx.document import HwpxDocument
 
 from txt_handler import read_text_auto
@@ -107,12 +109,16 @@ def _append_docx_source(dest_doc, src_path):
         insert_at += 1
 
 
-def merge_docx_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False):
+def merge_docx_files(
+    entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, page_break=False
+):
     dest = Document()
     for i, e in enumerate(entries):
         if i > 0:
             for _ in range(blank_lines):
                 dest.add_paragraph("")
+            if page_break:
+                dest.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
         for line in header_lines(e):
             _append_docx_header(dest, line, bold=header_bold, italic=header_italic)
         _append_docx_source(dest, e["path"])
@@ -136,7 +142,20 @@ def _append_hwpx_header(dest_doc, text, anchor=None, bold=True, italic=False):
     return p
 
 
-def merge_hwpx_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False):
+def _set_page_break_before(paragraph):
+    """이 문단이 새 페이지에서 시작하도록 표시(<hp:p pageBreak="...">).
+
+    add_paragraph()가 돌려주는 래퍼는 page_break을 직접 노출하지 않으므로,
+    model()/apply_model() 왕복을 통해 속성을 설정한다.
+    """
+    model = paragraph.model
+    model.page_break = True
+    paragraph.apply_model(model)
+
+
+def merge_hwpx_files(
+    entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, page_break=False
+):
     first_path = entries[0]["path"]
     dest = HwpxDocument.open(first_path)
 
@@ -148,34 +167,52 @@ def merge_hwpx_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, head
     for e in entries[1:]:
         for _ in range(blank_lines):
             dest.add_paragraph("")
+
+        block_start = None
         for line in header_lines(e):
-            _append_hwpx_header(dest, line, bold=header_bold, italic=header_italic)
+            p = _append_hwpx_header(dest, line, bold=header_bold, italic=header_italic)
+            block_start = block_start or p
+
         src = HwpxDocument.open(e["path"])
         for sp in src.paragraphs:
-            dest.add_paragraph(sp.text)
+            p = dest.add_paragraph(sp.text)
+            block_start = block_start or p
+
+        if page_break and block_start is not None:
+            _set_page_break_before(block_start)
 
     dest.save_to_path(output_path)
 
 
-def merge_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False):
+def merge_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, page_break=False):
     ext = common_extension(entries)
     if ext == ".txt":
         merge_txt_files(entries, output_path, blank_lines=blank_lines)
     elif ext == ".docx":
-        merge_docx_files(entries, output_path, blank_lines=blank_lines, header_bold=header_bold, header_italic=header_italic)
+        merge_docx_files(
+            entries, output_path, blank_lines=blank_lines, header_bold=header_bold, header_italic=header_italic,
+            page_break=page_break,
+        )
     elif ext == ".hwpx":
-        merge_hwpx_files(entries, output_path, blank_lines=blank_lines, header_bold=header_bold, header_italic=header_italic)
+        merge_hwpx_files(
+            entries, output_path, blank_lines=blank_lines, header_bold=header_bold, header_italic=header_italic,
+            page_break=page_break,
+        )
     else:
         raise ValueError(f"지원하지 않는 형식입니다: {ext}")
 
 
 # ---------- 미리보기 ----------
 
-def build_preview_segments(entries, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, max_chars=50000):
-    """[(text, is_header, bold, italic), ...] 세그먼트 리스트와 잘림 여부(bool)를 반환.
+def build_preview_segments(
+    entries, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, page_break=False, max_chars=50000
+):
+    """[(text, is_header, bold, italic, is_page_break), ...] 세그먼트 리스트와 잘림 여부(bool)를 반환.
 
-    실제 병합 결과와 같은 순서·간격·헤더 서식을 미리 보여주기 위한 것으로, 파일 내용은
-    문단을 줄바꿈으로 이어 붙인 일반 텍스트로만 표시한다(글자 단위 서식은 반영하지 않음).
+    실제 병합 결과와 같은 순서·간격·헤더 서식·페이지 나누기 위치를 미리 보여주기 위한
+    것으로, 파일 내용은 문단을 줄바꿈으로 이어 붙인 일반 텍스트로만 표시한다
+    (글자 단위 서식은 반영하지 않음). is_page_break인 세그먼트는 text가 비어 있고,
+    호출하는 쪽(화면)에서 원하는 표시 문구를 채워 넣는다.
     """
     segments = []
     total = 0
@@ -183,13 +220,15 @@ def build_preview_segments(entries, blank_lines=DEFAULT_BLANK_LINES, header_bold
 
     for i, entry in enumerate(entries):
         if i > 0:
-            segments.append(("\n" * (blank_lines + 1), False, False, False))
+            segments.append(("\n" * (blank_lines + 1), False, False, False, False))
+            if page_break:
+                segments.append(("", False, False, False, True))
 
         lines = header_lines(entry)
         if lines:
             header_text = "\n".join(lines)
-            segments.append((header_text, True, header_bold, header_italic))
-            segments.append(("\n\n", False, False, False))
+            segments.append((header_text, True, header_bold, header_italic, False))
+            segments.append(("\n\n", False, False, False, False))
             total += len(header_text)
 
         try:
@@ -200,10 +239,10 @@ def build_preview_segments(entries, blank_lines=DEFAULT_BLANK_LINES, header_bold
         if total + len(body_text) > max_chars:
             body_text = body_text[: max(0, max_chars - total)]
             truncated = True
-            segments.append((body_text, False, False, False))
+            segments.append((body_text, False, False, False, False))
             break
 
-        segments.append((body_text, False, False, False))
+        segments.append((body_text, False, False, False, False))
         total += len(body_text)
 
     return segments, truncated

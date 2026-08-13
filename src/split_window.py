@@ -191,14 +191,21 @@ class SplitWindow(tk.Toplevel):
         }[self.split_mode.get()]
         self.lbl_hint.configure(text=self.t(key))
 
-    def _resolve_chunk_size(self, path):
-        """현재 선택된 분할 단위를 실제 글자수 기준 chunk_size로 환산.
+    def _resolve_chunker(self, path):
+        """현재 선택된 분할 단위를 text -> [(start, end), ...] 콜러블(또는 정수
+        글자수 - splitter.resolve_chunker가 둘 다 받는다)로 환산.
 
-        크기(KB)/파일 수 기준은 문장 경계를 지키는 분할 로직(splitter.compute_chunks)이
-        항상 글자수만 받기 때문에, 문서 전체 글자수 대비 비율로 근사한 글자수를 구해서 넘긴다.
-        그래서 실제 생성되는 파일 크기/개수는 지정한 값과 정확히 일치하지 않을 수 있다.
+        - 글자수 모드는 입력값을 그대로 정수 chunk_size로 쓴다.
+        - 크기(KB) 모드는 문서 전체 글자수 대비 바이트 비율로 근사한 글자수를
+          정수 chunk_size로 환산한다(문서 형식/서식에 따라 실제 파일 크기는
+          지정한 값과 다를 수 있다).
+        - 파일 수 모드는 compute_chunks_by_count를 쓰는 콜러블을 반환한다.
+          이 함수는 조각을 만들 때마다 목표 크기를 다시 계산해 개수가
+          목표에 최대한 맞도록 보정하므로(문장은 여전히 끊기지 않음),
+          텍스트가 너무 짧아 그만큼 나눌 문장 경계가 없는 경우가 아니면
+          실제로 정확히 그 개수가 나온다.
 
-        반환: (chunk_size, None) 또는 (None, 오류메시지 번역 키).
+        반환: (chunker, None) 또는 (None, 오류메시지 번역 키).
         """
         mode = self.split_mode.get()
 
@@ -226,8 +233,7 @@ class SplitWindow(tk.Toplevel):
                     raise ValueError
             except ValueError:
                 return None, "err_bad_count"
-            chunk_size = max(1, -(-total_chars // count))
-            return chunk_size, None
+            return (lambda text: splitter.compute_chunks_by_count(text, count)), None
 
         # mode == "size"
         try:
@@ -242,7 +248,7 @@ class SplitWindow(tk.Toplevel):
         return chunk_size, None
 
     def _validate_file_and_size(self):
-        """(path, chunk_size)를 반환하거나, 문제가 있으면 오류창을 띄우고 None을 반환."""
+        """(path, chunker)를 반환하거나, 문제가 있으면 오류창을 띄우고 None을 반환."""
         path = self.file_path.get().strip()
 
         if not path or not os.path.isfile(path):
@@ -256,20 +262,20 @@ class SplitWindow(tk.Toplevel):
             messagebox.showwarning(self.t("unsupported_title"), self.t("unsupported_body", ext=ext))
             return None
 
-        chunk_size, err_key = self._resolve_chunk_size(path)
-        if chunk_size is None:
+        chunker, err_key = self._resolve_chunker(path)
+        if chunker is None:
             messagebox.showerror(self.t("err_title"), self.t(err_key))
             return None
-        return path, chunk_size
+        return path, chunker
 
     def on_preview(self):
         validated = self._validate_file_and_size()
         if validated is None:
             return
-        path, chunk_size = validated
+        path, chunker = validated
         try:
             text = read_plain_text(path)
-            previews, truncated, total_count = splitter.build_boundary_previews(text, chunk_size)
+            previews, truncated, total_count = splitter.build_boundary_previews(text, chunker)
         except Exception as e:
             messagebox.showerror(self.t("error_title"), self.t("error_body", err=e))
             return
@@ -279,7 +285,7 @@ class SplitWindow(tk.Toplevel):
         validated = self._validate_file_and_size()
         if validated is None:
             return
-        path, chunk_size = validated
+        path, chunker = validated
         out_dir = self.output_dir.get().strip()
 
         if not out_dir:
@@ -289,19 +295,19 @@ class SplitWindow(tk.Toplevel):
         os.makedirs(out_dir, exist_ok=True)
 
         self.log_line(self.t("log_start", path=path))
-        self.log_line(self._mode_log_note(chunk_size))
+        self.log_line(self._mode_log_note(chunker))
         self._set_running(True)
 
-        thread = threading.Thread(target=self._do_split, args=(path, chunk_size, out_dir), daemon=True)
+        thread = threading.Thread(target=self._do_split, args=(path, chunker, out_dir), daemon=True)
         thread.start()
 
-    def _mode_log_note(self, chunk_size):
+    def _mode_log_note(self, chunker):
         mode = self.split_mode.get()
         if mode == "size":
-            return self.t("log_kb_note", kb=self.chunk_kb.get().strip(), n=chunk_size)
+            return self.t("log_kb_note", kb=self.chunk_kb.get().strip(), n=chunker)
         if mode == "count":
-            return self.t("log_count_note", count=self.chunk_count.get().strip(), n=chunk_size)
-        return self.t("log_size_note", n=chunk_size)
+            return self.t("log_count_note", count=self.chunk_count.get().strip())
+        return self.t("log_size_note", n=chunker)
 
     def _set_running(self, running):
         state = "disabled" if running else "normal"
@@ -317,21 +323,29 @@ class SplitWindow(tk.Toplevel):
         else:
             self._on_mode_changed()
 
-    def _do_split(self, path, chunk_size, out_dir):
+    def _do_split(self, path, chunker, out_dir):
         ext = os.path.splitext(path)[1].lower()
         try:
             if ext == ".txt":
-                out_paths, encoding = split_txt_file(path, chunk_size, out_dir)
+                out_paths, encoding = split_txt_file(path, chunker, out_dir)
                 self.after(0, self.log_line, self.t("log_detected_encoding", enc=encoding))
             elif ext == ".docx":
-                out_paths = split_docx_file(path, chunk_size, out_dir)
+                out_paths = split_docx_file(path, chunker, out_dir)
             elif ext == ".hwpx":
-                out_paths = split_hwpx_file(path, chunk_size, out_dir)
+                out_paths = split_hwpx_file(path, chunker, out_dir)
             else:
                 raise ValueError(self.t("unsupported_body", ext=ext))
 
             for p in out_paths:
-                self.after(0, self.log_line, self.t("log_generated", path=p))
+                try:
+                    char_count = len(read_plain_text(p))
+                except Exception:
+                    char_count = "?"
+                byte_size = os.path.getsize(p)
+                self.after(
+                    0, self.log_line,
+                    self.t("log_generated", path=p, chars=char_count, size=f"{byte_size:,}"),
+                )
             self.after(0, self.log_line, self.t("log_done", n=len(out_paths)))
             self.after(0, lambda: messagebox.showinfo(self.t("done_title"), self.t("done_body", n=len(out_paths), out=out_dir)))
         except Exception as e:

@@ -7,7 +7,7 @@
   - 런 어댑터: .get_text() / .set_text(str) / .remove()
 """
 
-from splitter import compute_chunks
+from splitter import resolve_chunker
 
 
 def paragraph_spans(paragraph_texts):
@@ -76,13 +76,15 @@ def trim_paragraph_runs(runs, left_trim, right_trim):
             r.set_text(t[keep_start - r_start:keep_end - r_start])
 
 
-def split_paragraph_document(source_path, chunk_size, open_doc, get_paragraphs, save_doc, make_output_path):
+def split_paragraph_document(source_path, chunker, open_doc, get_paragraphs, save_doc, make_output_path):
     """공통 분할 드라이버.
 
     open_doc(path) -> doc 객체 (호출할 때마다 원본을 새로 읽어 독립된 사본을 만든다)
     get_paragraphs(doc) -> 단락 어댑터 리스트 (문서 순서대로)
     save_doc(doc, path) -> 저장
     make_output_path(index) -> index번째(1부터) 출력 파일 경로
+    chunker: 글자수(정수) 또는 text -> [(start, end), ...] 콜러블
+             (splitter.resolve_chunker로 통일해서 처리한다).
 
     반환값: 생성된 출력 파일 경로 리스트
     """
@@ -90,7 +92,7 @@ def split_paragraph_document(source_path, chunk_size, open_doc, get_paragraphs, 
     paragraph_texts = [p.text for p in get_paragraphs(probe)]
     full_text = "".join(paragraph_texts)
 
-    chunks = compute_chunks(full_text, chunk_size)
+    chunks = resolve_chunker(chunker)(full_text)
     spans = paragraph_spans(paragraph_texts)
 
     output_paths = []

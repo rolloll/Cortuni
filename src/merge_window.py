@@ -1,4 +1,4 @@
-"""파일 합치기 창.
+"""파일 병합 창.
 
 여러 txt/docx/hwpx 파일을 원하는 순서로(마우스 드래그) 배치하고,
 파일별로 원하면 제목을 넣어 하나로 합친다(제목을 비워두면 그 파일 앞에 아무것도
@@ -133,6 +133,14 @@ class MergeWindow(tk.Toplevel):
         self.chk_italic = ttk.Checkbutton(frm_settings, variable=self.var_italic, text="")
         self.chk_italic.pack(side="left")
 
+        frm_page_break = ttk.Frame(self)
+        frm_page_break.pack(fill="x", padx=10, pady=(0, 6))
+        self.var_page_break = tk.BooleanVar(value=False)
+        self.chk_page_break = ttk.Checkbutton(frm_page_break, variable=self.var_page_break, text="")
+        self.chk_page_break.pack(side="left")
+        self.lbl_page_break_hint = ttk.Label(frm_page_break, foreground="#555555", wraplength=600, justify="left")
+        self.lbl_page_break_hint.pack(side="left", padx=(6, 0))
+
         ttk.Separator(self).pack(fill="x", padx=10, pady=4)
 
         frm_out = ttk.Frame(self)
@@ -175,6 +183,8 @@ class MergeWindow(tk.Toplevel):
         self.lbl_header_style.configure(text=self.t("merge_header_style_label"))
         self.chk_bold.configure(text=self.t("merge_bold_label"))
         self.chk_italic.configure(text=self.t("merge_italic_label"))
+        self.chk_page_break.configure(text=self.t("merge_page_break_label"))
+        self.lbl_page_break_hint.configure(text=self.t("merge_page_break_hint"))
         self.lbl_output.configure(text=self.t("merge_output_label"))
         self.btn_output.configure(text=self.t("merge_output_button"))
         self.lbl_hwpx_note.configure(text=self.t("merge_hwpx_note"))
@@ -362,6 +372,9 @@ class MergeWindow(tk.Toplevel):
     def _get_header_style(self):
         return bool(self.var_bold.get()), bool(self.var_italic.get())
 
+    def _get_page_break(self):
+        return bool(self.var_page_break.get())
+
     # ---------- CSV ----------
 
     def on_create_example_csv(self):
@@ -451,17 +464,21 @@ class MergeWindow(tk.Toplevel):
 
         spacing = self._get_spacing()
         bold, italic = self._get_header_style()
+        page_break = self._get_page_break()
 
         self.log_line(self.t("merge_log_start", n=len(self.entries)))
         self._set_running(True)
         thread = threading.Thread(
-            target=self._do_merge, args=(list(self.entries), output_path, spacing, bold, italic), daemon=True
+            target=self._do_merge, args=(list(self.entries), output_path, spacing, bold, italic, page_break), daemon=True
         )
         thread.start()
 
-    def _do_merge(self, entries, output_path, spacing, bold, italic):
+    def _do_merge(self, entries, output_path, spacing, bold, italic, page_break):
         try:
-            merge_apply.merge_files(entries, output_path, blank_lines=spacing, header_bold=bold, header_italic=italic)
+            merge_apply.merge_files(
+                entries, output_path, blank_lines=spacing, header_bold=bold, header_italic=italic,
+                page_break=page_break,
+            )
             self.after(0, self.log_line, self.t("merge_log_done", path=output_path))
             self.after(0, lambda: messagebox.showinfo(self.t("merge_done_title"), self.t("merge_done_body", path=output_path)))
         except merge_apply.MixedExtensionError as e:
@@ -482,16 +499,17 @@ class MergeWindow(tk.Toplevel):
             messagebox.showerror(self.t("err_title"), self.t("merge_no_files"))
             return
         try:
-            merge_apply.common_extension(self.entries)
+            ext = merge_apply.common_extension(self.entries)
         except merge_apply.MixedExtensionError as e:
             messagebox.showerror(self.t("merge_error_title"), self.t("merge_mixed_ext_error", exts=", ".join(e.exts)))
             return
 
         spacing = self._get_spacing()
         bold, italic = self._get_header_style()
+        page_break = self._get_page_break() and ext in (".docx", ".hwpx")
         try:
             segments, truncated = merge_apply.build_preview_segments(
-                self.entries, blank_lines=spacing, header_bold=bold, header_italic=italic
+                self.entries, blank_lines=spacing, header_bold=bold, header_italic=italic, page_break=page_break
             )
         except Exception as e:
             messagebox.showerror(self.t("merge_error_title"), self.t("merge_error_body", err=e))
@@ -527,8 +545,12 @@ class PreviewWindow(tk.Toplevel):
         text_widget.tag_configure("bold", font=(family, 10, "bold"))
         text_widget.tag_configure("italic", font=(family, 10, "italic"))
         text_widget.tag_configure("bold_italic", font=(family, 10, "bold italic"))
+        text_widget.tag_configure("page_break", foreground="#a05a00", justify="center")
 
-        for content, _is_header, bold, italic in segments:
+        for content, _is_header, bold, italic, is_page_break in segments:
+            if is_page_break:
+                text_widget.insert("end", "\n" + t("merge_preview_page_break_label") + "\n\n", "page_break")
+                continue
             if bold and italic:
                 tag = "bold_italic"
             elif bold:

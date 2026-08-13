@@ -2,7 +2,7 @@
 
 import os
 
-from splitter import split_text
+from splitter import resolve_chunker
 
 # 흔히 쓰이는 한국어 인코딩 순서대로 시도한다. BOM이 있으면 utf-8-sig가 우선 처리된다.
 _ENCODING_CANDIDATES = ["utf-8-sig", "utf-8", "cp949", "euc-kr"]
@@ -31,11 +31,11 @@ def read_text_auto(path):
     return raw.decode("utf-8", errors="replace"), "utf-8(대체문자 포함)"
 
 
-def split_txt_file(path, chunk_size, output_dir):
+def split_txt_file(path, chunker, output_dir):
     text, used_encoding = read_text_auto(path)
 
     base = os.path.splitext(os.path.basename(path))[0]
-    parts = split_text(text, chunk_size)
+    parts = [text[s:e] for s, e in resolve_chunker(chunker)(text)]
 
     output_paths = []
     for i, part in enumerate(parts, start=1):
