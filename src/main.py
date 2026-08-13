@@ -26,6 +26,7 @@ import theme
 import update_checker
 from i18n import STRINGS
 from settings_page import SettingsPage
+from split_page import SplitPage
 from version import __version__
 
 DEFAULT_LANG = "ko"
@@ -189,7 +190,8 @@ class App(TkinterDnD.Tk):
 
     def _build_pages(self):
         self._pages["settings"] = SettingsPage(self._content, self)
-        for key in ("home", "split", "merge", "terms", "batch", "convert"):
+        self._pages["split"] = SplitPage(self._content, self)
+        for key in ("home", "merge", "terms", "batch", "convert"):
             self._pages[key] = _ComingSoonPage(self._content, self, key)
 
         for page in self._pages.values():
