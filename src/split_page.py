@@ -111,14 +111,18 @@ class SplitPage(ttk.Frame):
         row.pack(fill="x", padx=12, pady=12)
         self.lbl_file_badge = tk.Label(row, text="", width=5, font=(theme.HEADING_FONT, 9, "bold"))
         self.lbl_file_badge.pack(side="left", padx=(0, 12))
-        info_col = ttk.Frame(row)
-        info_col.pack(side="left", fill="x", expand=True)
-        self.lbl_file_name = ttk.Label(info_col, text="", style="Heading.TLabel")
-        self.lbl_file_name.pack(anchor="w")
-        self.lbl_file_meta = ttk.Label(info_col, text="", style="Muted.TLabel")
-        self.lbl_file_meta.pack(anchor="w")
+        # btn_file은 info_col보다 먼저 pack해야 한다 - pack은 나중에 나온 side="right"
+        # 위젯을 위해 미리 공간을 빼놓지 않으므로, expand=True인 info_col을 먼저 넣으면
+        # 파일 경로처럼 긴 텍스트가 이 버튼과 겹친다(둘 다 "left"였다면 문제 없었을 것).
         self.btn_file = ttk.Button(row, style="Secondary.TButton", command=self.choose_file)
         self.btn_file.pack(side="right")
+        info_col = ttk.Frame(row)
+        info_col.pack(side="left", fill="x", expand=True, padx=(0, 12))
+        self.lbl_file_name = ttk.Label(info_col, text="", style="Heading.TLabel")
+        self.lbl_file_name.pack(anchor="w", fill="x")
+        self.lbl_file_meta = ttk.Label(info_col, text="", style="Muted.TLabel")
+        self.lbl_file_meta.pack(anchor="w", fill="x")
+        info_col.bind("<Configure>", self._on_file_info_resize)
         self.lbl_drop_hint = ttk.Label(left, style="Muted.TLabel", wraplength=380, justify="left")
         self.lbl_drop_hint.pack(anchor="w", pady=(6, 14))
 
@@ -284,6 +288,12 @@ class SplitPage(ttk.Frame):
             self.output_dir.set(os.path.join(os.path.dirname(path), f"{base}{suffix}"))
         self._update_file_display()
         self._update_estimate()
+
+    def _on_file_info_resize(self, event):
+        # 파일명/경로 라벨이 실제 폭에 맞춰 줄바꿈되게 한다 - 없으면 긴 경로가
+        # wraplength 없이 자기 폭만큼 요구해서 옆의 파일 선택 버튼과 겹친다.
+        self.lbl_file_name.configure(wraplength=event.width)
+        self.lbl_file_meta.configure(wraplength=event.width)
 
     def _update_file_display(self):
         path = self.file_path.get().strip()

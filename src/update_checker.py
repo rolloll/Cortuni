@@ -8,7 +8,7 @@ import json
 import urllib.error
 import urllib.request
 
-GITHUB_REPO = "rolloll/coriuni"
+GITHUB_REPO = "rolloll/Cortuni"
 REQUEST_TIMEOUT = 4
 
 
@@ -37,7 +37,7 @@ def fetch_latest_release(repo=GITHUB_REPO, timeout=REQUEST_TIMEOUT):
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     request = urllib.request.Request(
         url,
-        headers={"Accept": "application/vnd.github+json", "User-Agent": "Coriuni-UpdateChecker"},
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "Cortuni-UpdateChecker"},
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:

@@ -7,7 +7,7 @@ record()가 한 줄 남기고, 홈 화면이 recent()로 최신순으로 읽어 
 import json
 import os
 
-APP_DATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Coriuni")
+APP_DATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Cortuni")
 LOG_PATH = os.path.join(APP_DATA_DIR, "activity.json")
 MAX_ENTRIES = 50
 

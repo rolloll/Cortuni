@@ -1,6 +1,6 @@
 """호칭어/지칭어(및 고유명사) 치환 사전 관리.
 
-- CSV로 영구 저장(%APPDATA%\\Coriuni\\terms.csv)
+- CSV로 영구 저장(%APPDATA%\\Cortuni\\terms.csv)
 - 프로그램을 처음 실행할 때 자주 쓰이는 한국어 호칭/지칭어를 기본으로 채워 둔다
   (바꿀 단어는 우선 원래 단어와 동일하게 넣어두고, 사용자가 원하는 값으로 고쳐 쓰면 된다).
 - 각 항목은 "작품(그룹)"을 가질 수 있다. 그룹이 비어 있으면 "공통"으로 취급되어
@@ -10,7 +10,7 @@
 import csv
 import os
 
-APP_DATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Coriuni")
+APP_DATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Cortuni")
 DICT_PATH = os.path.join(APP_DATA_DIR, "terms.csv")
 
 CSV_FIELDS = ["원래단어", "바꿀단어", "작품"]

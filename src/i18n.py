@@ -1,8 +1,8 @@
-"""코리우니(Coriuni) UI 다국어(한국어/English) 문자열."""
+"""Cortuni UI 다국어(한국어/English) 문자열."""
 
 STRINGS = {
     "ko": {
-        "window_title": "코리우니",
+        "window_title": "Cortuni",
         "lang_label": "언어 설정:",
         "font_label": "글꼴:",
         "nav_group_split_merge": "파일 나누기 · 합치기",
@@ -14,7 +14,7 @@ STRINGS = {
         "nav_batch": "파일명 일괄",
         "nav_convert": "확장자 변환",
         "nav_settings": "설정",
-        "split_window_title": "분할 - 코리우니",
+        "split_window_title": "분할 - Cortuni",
         "file_label": "분할할 파일:",
         "file_button": "파일 선택",
         "output_label": "저장 폴더:",
@@ -70,7 +70,7 @@ STRINGS = {
         "error_body": "분할 중 오류가 발생했습니다:\n{err}",
 
         "rename_menu_button": "이름·호칭 바꾸기",
-        "rename_window_title": "이름·호칭 바꾸기 - 코리우니",
+        "rename_window_title": "이름·호칭 바꾸기 - Cortuni",
         "rename_dict_label": "등록된 단어",
         "rename_col_old": "원래단어",
         "rename_col_new": "바꿀단어",
@@ -108,7 +108,7 @@ STRINGS = {
         "rename_choose_csv_title": "불러올 CSV 파일 선택",
         "rename_common_group": "(공통)",
 
-        "merge_window_title": "파일 병합 - 코리우니",
+        "merge_window_title": "파일 병합 - Cortuni",
         "merge_add_files_button": "파일 추가",
         "merge_add_folder_button": "폴더 전체 추가",
         "merge_remove_button": "선택 삭제",
@@ -153,7 +153,7 @@ STRINGS = {
         "merge_bold_label": "굵게",
         "merge_italic_label": "기울임",
         "merge_preview_button": "미리보기",
-        "merge_preview_window_title": "미리보기 - 코리우니",
+        "merge_preview_window_title": "미리보기 - Cortuni",
         "merge_preview_truncated_note": "※ 내용이 많아 일부만 미리보기로 표시합니다.",
         "merge_preview_close_button": "닫기",
         "merge_page_break_label": "페이지 나누기",
@@ -167,7 +167,7 @@ STRINGS = {
         "batch_rename_button": "파일명 일괄 수정",
         "convert_button": "확장자 변환",
 
-        "batch_window_title": "파일명 일괄 수정 - 코리우니",
+        "batch_window_title": "파일명 일괄 수정 - Cortuni",
         "batch_add_files_button": "파일 추가",
         "batch_add_folder_button": "폴더 전체 추가",
         "batch_remove_button": "선택 삭제",
@@ -201,7 +201,7 @@ STRINGS = {
         "batch_log_skip_item": "  충돌로 건너뜀: {old} → {new}",
         "batch_log_done": "완료",
 
-        "convert_window_title": "확장자 변환 - 코리우니",
+        "convert_window_title": "확장자 변환 - Cortuni",
         "convert_add_files_button": "파일 추가",
         "convert_add_folder_button": "폴더 전체 추가",
         "convert_remove_button": "선택 삭제",
@@ -237,7 +237,7 @@ STRINGS = {
         "settings_font_preview": "본문 미리보기 — 소년은 바다를 보았다.",
         "settings_hwp_note": "지원 형식: .txt · .docx · .hwpx — .hwp(구버전 바이너리)는 지원하지 않습니다.",
 
-        "split_preview_window_title": "분할 미리보기 - 코리우니",
+        "split_preview_window_title": "분할 미리보기 - Cortuni",
         "split_preview_chunk_label": "{index}번째 조각 ({start}~{end}자, 총 {length}자)",
         "split_preview_boundary_label": "── 여기서 나뉨 ──",
         "split_preview_last_label": "(마지막 조각)",
@@ -245,7 +245,7 @@ STRINGS = {
         "split_preview_truncated_note": "※ 조각이 많아 처음 {shown}개만 표시합니다 (전체 {total}개).",
     },
     "en": {
-        "window_title": "Coriuni",
+        "window_title": "Cortuni",
         "lang_label": "Language Settings:",
         "font_label": "Font:",
         "nav_group_split_merge": "Split & Merge",
@@ -257,7 +257,7 @@ STRINGS = {
         "nav_batch": "Batch rename",
         "nav_convert": "Convert",
         "nav_settings": "Settings",
-        "split_window_title": "Split - Coriuni",
+        "split_window_title": "Split - Cortuni",
         "file_label": "File to split:",
         "file_button": "Choose File",
         "output_label": "Output folder:",
@@ -314,7 +314,7 @@ STRINGS = {
         "error_body": "An error occurred while splitting:\n{err}",
 
         "rename_menu_button": "Rename Names/Titles",
-        "rename_window_title": "Rename Names & Titles - Coriuni",
+        "rename_window_title": "Rename Names & Titles - Cortuni",
         "rename_dict_label": "Registered terms",
         "rename_col_old": "Original",
         "rename_col_new": "Replacement",
@@ -352,7 +352,7 @@ STRINGS = {
         "rename_choose_csv_title": "Select CSV file to import",
         "rename_common_group": "(common)",
 
-        "merge_window_title": "Merge Files - Coriuni",
+        "merge_window_title": "Merge Files - Cortuni",
         "merge_add_files_button": "Add Files",
         "merge_add_folder_button": "Add All in Folder",
         "merge_remove_button": "Remove Selected",
@@ -397,7 +397,7 @@ STRINGS = {
         "merge_bold_label": "Bold",
         "merge_italic_label": "Italic",
         "merge_preview_button": "Preview",
-        "merge_preview_window_title": "Preview - Coriuni",
+        "merge_preview_window_title": "Preview - Cortuni",
         "merge_preview_truncated_note": "* Content is long; only part of it is shown in the preview.",
         "merge_preview_close_button": "Close",
         "merge_page_break_label": "Page break",
@@ -411,7 +411,7 @@ STRINGS = {
         "batch_rename_button": "Batch Rename Files",
         "convert_button": "Convert Format",
 
-        "batch_window_title": "Batch Rename Files - Coriuni",
+        "batch_window_title": "Batch Rename Files - Cortuni",
         "batch_add_files_button": "Add Files",
         "batch_add_folder_button": "Add All in Folder",
         "batch_remove_button": "Remove Selected",
@@ -445,7 +445,7 @@ STRINGS = {
         "batch_log_skip_item": "  Skipped (conflict): {old} → {new}",
         "batch_log_done": "Done",
 
-        "convert_window_title": "Convert Format - Coriuni",
+        "convert_window_title": "Convert Format - Cortuni",
         "convert_add_files_button": "Add Files",
         "convert_add_folder_button": "Add All in Folder",
         "convert_remove_button": "Remove Selected",
@@ -481,7 +481,7 @@ STRINGS = {
         "settings_font_preview": "Body preview — the boy watched the sea.",
         "settings_hwp_note": "Supported: .txt, .docx, .hwpx. Legacy binary .hwp is not supported.",
 
-        "split_preview_window_title": "Split Preview - Coriuni",
+        "split_preview_window_title": "Split Preview - Cortuni",
         "split_preview_chunk_label": "Chunk {index} ({start}–{end} chars, {length} chars total)",
         "split_preview_boundary_label": "── split here ──",
         "split_preview_last_label": "(last chunk)",

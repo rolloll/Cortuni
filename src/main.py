@@ -1,4 +1,4 @@
-"""코리우니(Coriuni) - 문장이 잘리지 않는 글자수 기준 파일 분할/병합 도구.
+"""Cortuni - 문장이 잘리지 않는 글자수 기준 파일 분할/병합 도구.
 
 지원 형식: .txt, .docx(MS Word), .hwpx(한글 최신 XML 형식)
 .hwp(구버전 바이너리 한글 파일)는 공식 파서가 없어 지원하지 않는다.
@@ -24,6 +24,7 @@ import prefs
 import sidebar
 import theme
 import update_checker
+import winchrome
 from batch_page import BatchPage
 from convert_page import ConvertPage
 from home_page import HomePage
@@ -61,13 +62,21 @@ def resource_path(relative_path):
 
 class App(TkinterDnD.Tk):
     def __init__(self):
+        # Tk 창을 만들기 전에 호출해야 한다 - 그래야 Windows가 창 전체를 블러 낀
+        # 비트맵으로 확대하지 않고 모니터의 실제 DPI로 직접 그려서, 100% 배율이 아닌
+        # 화면에서도 한글 글꼴을 포함한 텍스트가 흐릿/뭉개지지 않는다.
+        winchrome.enable_dpi_awareness()
+        prefs.migrate_from_old_app_name()
         super().__init__()
         self.geometry("1180x760")
         self.minsize(980, 640)
 
         try:
-            self._icon_image = tk.PhotoImage(file=resource_path("icon.png"))
-            self.iconphoto(True, self._icon_image)
+            self._icon_images = [
+                tk.PhotoImage(file=resource_path(f"icons/icon-{size}.png"))
+                for size in (16, 32, 48, 64, 128, 256)
+            ]
+            self.iconphoto(True, *self._icon_images)
         except Exception:
             pass
 
@@ -154,13 +163,13 @@ class App(TkinterDnD.Tk):
         self._logo_canvas = tk.Canvas(self._header, width=18, height=24, highlightthickness=0)
         self._logo_canvas.pack(side="left", padx=(14, 8))
 
-        self._wordmark = tk.Label(self._header, text="CORIUNI", font=(theme.HEADING_FONT, 13, "bold"))
+        self._wordmark = tk.Label(self._header, text="CORTUNI", font=(theme.HEADING_FONT, 13, "bold"))
         self._wordmark.pack(side="left")
 
         self._header_caption = tk.Label(self._header, text="", font=("Segoe UI", 9))
         self._header_caption.pack(side="left", padx=(12, 0))
 
-        self._header_version = tk.Label(self._header, text=f"코리우니 {__version__}", font=("Segoe UI", 8))
+        self._header_version = tk.Label(self._header, text=f"Cortuni {__version__}", font=("Segoe UI", 8))
         self._header_version.pack(side="right", padx=14)
 
         body = ttk.Frame(self)
@@ -223,6 +232,12 @@ class App(TkinterDnD.Tk):
         self._logo_canvas.delete("all")
         self._logo_canvas.create_rectangle(3, 6, 15, 18, outline=t["accent"])
         self._logo_canvas.create_line(9, 1, 9, 23, fill=t["accent"])
+        self._sync_titlebar(t)
+
+    def _sync_titlebar(self, t):
+        """OS 타이틀바(최소화/최대화/닫기)를 지금 테마의 배경/글자색으로 재도색한다."""
+        self.update_idletasks()
+        winchrome.apply_titlebar_theme(self.winfo_id(), theme.is_dark(), t["bg"], t["text"])
 
 
 if __name__ == "__main__":

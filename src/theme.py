@@ -92,6 +92,11 @@ def current_mode():
     return _mode
 
 
+def is_dark():
+    """지금 화면에 적용 중인 토큰이 다크인지(즉 "system"이 다크로 풀렸는지 포함)."""
+    return _tokens is DARK_TOKENS
+
+
 def subscribe(widget):
     """widget은 refresh_theme() 메서드를 가져야 한다. set_mode()가 호출될 때마다 불린다."""
     _subscribers.append(widget)

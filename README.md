@@ -1,4 +1,4 @@
-# Coriuni
+# Cortuni
 
 A Windows desktop tool for splitting, merging, and batch-editing `.txt` / `.docx` / `.hwpx` documents without cutting sentences in half.
 
@@ -16,7 +16,7 @@ Supported formats: `.txt`, `.docx`, `.hwpx`. Legacy `.hwp` (binary) is not suppo
 
 ## For users
 
-Download the latest `Coriuni.exe` from the [Releases](../../releases) page and run it — no installation or Python required.
+Download the latest `Cortuni.exe` from the [Releases](../../releases) page and run it — no installation or Python required.
 
 ## For developers
 
@@ -24,12 +24,12 @@ Download the latest `Coriuni.exe` from the [Releases](../../releases) page and r
 
 ```
 src/        application source (flat modules, main.py is the entry point)
-assets/     icon.ico / icon.png, and fonts/ (bundled Barlow / Barlow Condensed)
+assets/     icon.ico / icon.png, icons/ (multi-resolution 16-256px taskbar/titlebar icons), and fonts/ (bundled Barlow / Barlow Condensed)
 ```
 
 `main.py` is a single persistent window (`App`) with a left `Sidebar` and a content area holding one `*_page.py` `Frame` per feature, swapped via `App.navigate(key)`. All the actual split/merge/rename/convert/batch-rename logic lives in plain modules with no UI code (`splitter.py`, `merge_apply.py`, `rename_apply.py`, `convert_apply.py`, `batch_rename_apply.py`, plus their `*_handler.py`/`adapters.py` format glue) — the `*_page.py` files only build widgets and call into those.
 
-The visual design ("Industry" — flat, square-cornered, hairline-bordered, steel-blue accent) lives in `theme.py` (color/spacing tokens + the `ttk.Style` built from them, with light/dark/system switching) and `widgets.py` (`BlueprintFrame` — the hairline-plus-corner-marks card/panel primitive; `Segmented` — the pill-style single-choice control used instead of radio buttons). `dialogs.py` replaces `tkinter.messagebox` (which can't be restyled at all) with themed equivalents. `fonts.py` handles two independent things: the user-selectable content font (`apply_font_family`, unchanged since 1.x) and the fixed brand chrome font (`load_brand_fonts`, registers the bundled Barlow files with Windows at runtime via `AddFontResourceExW`).
+The visual design ("Industry" — flat, square-cornered, hairline-bordered, steel-blue accent) lives in `theme.py` (color/spacing tokens + the `ttk.Style` built from them, with light/dark/system switching) and `widgets.py` (`BlueprintFrame` — the hairline-plus-corner-marks card/panel primitive; `Segmented` — the pill-style single-choice control used instead of radio buttons). `dialogs.py` replaces `tkinter.messagebox` (which can't be restyled at all) with themed equivalents. `fonts.py` handles two independent things: the user-selectable content font (`apply_font_family`, unchanged since 1.x) and the fixed brand chrome font (`load_brand_fonts`, registers the bundled Barlow files with Windows at runtime via `AddFontResourceExW`). `winchrome.py` repaints the OS-drawn title bar (the minimize/maximize/close strip tkinter can't touch directly) via undocumented-but-stable DWM window attributes, so it follows the app's light/dark/system theme instead of staying stuck on the OS default; `main.App.refresh_theme()` calls it on every theme change.
 
 ### Setup
 
@@ -56,9 +56,10 @@ python src/selftest.py
 ### Build the Windows exe
 
 ```
-pyinstaller --noconfirm --onefile --windowed --name Coriuni ^
+pyinstaller --noconfirm --onefile --windowed --name Cortuni ^
   --icon assets/icon.ico ^
   --add-data "assets/icon.png;assets" ^
+  --add-data "assets/icons;assets/icons" ^
   --add-data "assets/fonts;assets/fonts" ^
   --collect-data docx ^
   --collect-data hwpx ^
@@ -66,7 +67,7 @@ pyinstaller --noconfirm --onefile --windowed --name Coriuni ^
   src/main.py
 ```
 
-`--collect-data docx` and `--collect-data hwpx` are required — both libraries ship non-Python template/skeleton files (`python-docx`'s default `.docx` template, `python-hwpx`'s `Skeleton.hwpx`) that PyInstaller won't pick up automatically. `--collect-all tkinterdnd2` bundles its native `tkdnd` component the same way. `--add-data "assets/fonts;assets/fonts"` ships the brand fonts so `fonts.load_brand_fonts()` can find them via `main.py`'s `resource_path()` at runtime. The output is `dist/Coriuni.exe`.
+`--collect-data docx` and `--collect-data hwpx` are required — both libraries ship non-Python template/skeleton files (`python-docx`'s default `.docx` template, `python-hwpx`'s `Skeleton.hwpx`) that PyInstaller won't pick up automatically. `--collect-all tkinterdnd2` bundles its native `tkdnd` component the same way. `--add-data "assets/icons;assets/icons"` ships the 16-256px window/taskbar icon set `main.py` loads via `resource_path()`; `--add-data "assets/fonts;assets/fonts"` does the same for the brand fonts. The output is `dist/Cortuni.exe`.
 
 ### Notes on the sentence-boundary logic
 

@@ -78,7 +78,7 @@ class HomePage(ttk.Frame):
             cards_row.grid_columnconfigure(i, weight=1, uniform="cards")
         self._cards = {}
         for i, key in enumerate(_CARD_KEYS):
-            card = widgets.BlueprintFrame(cards_row, height=132)
+            card = widgets.BlueprintFrame(cards_row, height=144)
             card.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 8, 0))
             card.bind("<Button-1>", lambda e, k=key: self.app.navigate(k))
             card.content.bind("<Button-1>", lambda e, k=key: self.app.navigate(k))
@@ -92,6 +92,11 @@ class HomePage(ttk.Frame):
             for w in (kicker, title, body):
                 w.bind("<Button-1>", lambda e, k=key: self.app.navigate(k))
                 w.configure(cursor="hand2")
+            # wraplength=160은 카드가 넉넉히 넓을 때(기본 창 크기) 기준이라, 사이드바 폭까지
+            # 감안하면 창을 최소 크기 쪽으로 줄일 때 실제 카드 폭이 그보다 좁아져 설명 글자가
+            # 오른쪽에서 잘린다. add="+"로 BlueprintFrame 자신의 <Configure> 핸들러(테두리 재계산)
+            # 뒤에 이어붙여서, 실제 카드 폭이 바뀔 때마다 wraplength를 다시 맞춘다.
+            card.bind("<Configure>", lambda e, b=body: self._on_card_resize(e, b), add="+")
             self._cards[key] = {"card": card, "kicker": kicker, "title": title, "body": body}
 
         recent_frame = ttk.Frame(self)
@@ -113,6 +118,10 @@ class HomePage(ttk.Frame):
         self.recent_tree.column("target", width=260, anchor="w")
         self.recent_tree.column("result", width=200, anchor="w")
         self.recent_tree.column("time", width=120, anchor="center", stretch=False)
+
+    def _on_card_resize(self, event, body):
+        wrap = max(100, event.width - 2 * widgets.BlueprintFrame.MARGIN - 20)
+        body.configure(wraplength=wrap)
 
     def apply_language(self):
         self.lbl_title.configure(text="무엇을 할까요?")
