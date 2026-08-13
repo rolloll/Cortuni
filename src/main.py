@@ -4,8 +4,9 @@
 .hwp(구버전 바이너리 한글 파일)는 공식 파서가 없어 지원하지 않는다.
 한글 프로그램에서 "다른 이름으로 저장 > HWPX"로 변환한 뒤 사용해야 한다.
 
-분할/병합/이름·호칭 바꾸기는 각각 별도의 창에서 이루어지며, 이 창은 그 창들을
-여는 진입점 역할만 한다.
+2.0부터는 사이드바가 있는 하나의 창(App)에서 화면만 바뀌는 구조다. 각 기능은
+더 이상 별도의 팝업 창이 아니라 self._pages에 담긴 페이지(Frame)이고,
+App.navigate(key)가 보여줄 페이지를 바꾼다.
 """
 
 import os
@@ -13,20 +14,30 @@ import sys
 import threading
 import webbrowser
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
-from i18n import STRINGS, LANGUAGES
-from rename_window import RenameWindow
-from merge_window import MergeWindow
-from split_window import SplitWindow
-from batch_rename_window import BatchRenameWindow
-from convert_window import ConvertWindow
-from version import __version__
-import update_checker
+from tkinterdnd2 import TkinterDnD
+
+import dialogs
 import fonts
 import prefs
+import sidebar
+import theme
+import update_checker
+from i18n import STRINGS
+from settings_page import SettingsPage
+from version import __version__
 
 DEFAULT_LANG = "ko"
+
+_NAV_CAPTIONS_EN = {
+    "home": "Home", "split": "Split", "merge": "Merge", "terms": "Terms",
+    "batch": "Batch rename", "convert": "Convert", "settings": "Settings",
+}
+_NAV_KEYS = {
+    "home": "nav_home", "split": "nav_split", "merge": "nav_merge", "terms": "nav_terms",
+    "batch": "nav_batch", "convert": "nav_convert", "settings": "nav_settings",
+}
 
 
 def resource_path(relative_path):
@@ -42,10 +53,26 @@ def resource_path(relative_path):
     return os.path.join(base_path, "assets", relative_path)
 
 
-class App(tk.Tk):
+class _ComingSoonPage(ttk.Frame):
+    """아직 새 디자인으로 옮기지 않은 화면의 임시 자리표시자. 포팅되면 지운다."""
+
+    def __init__(self, parent, app, key):
+        super().__init__(parent)
+        self.app = app
+        self.key = key
+        self.lbl = ttk.Label(self, style="Heading.TLabel")
+        self.lbl.place(relx=0.5, rely=0.5, anchor="center")
+        self.apply_language()
+
+    def apply_language(self):
+        self.lbl.configure(text=f"{self.app.t(_NAV_KEYS[self.key])} — coming soon")
+
+
+class App(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
-        self.resizable(True, True)
+        self.geometry("1180x760")
+        self.minsize(980, 640)
 
         try:
             self._icon_image = tk.PhotoImage(file=resource_path("icon.png"))
@@ -54,35 +81,64 @@ class App(tk.Tk):
             pass
 
         self.lang = DEFAULT_LANG
-        self._sub_windows = []
-        self._rename_window = None
-        self._merge_window = None
-        self._split_window = None
-        self._batch_rename_window = None
-        self._convert_window = None
-        self.edit_section_expanded = False
+        self._content_font_family = None
+        self._active_page = None
+        self._pages = {}
 
-        self._build_widgets()
-        self.apply_language()
+        ok, msg = fonts.load_brand_fonts(resource_path("fonts"))
+        if not ok:
+            print("[fonts] " + msg)
+
+        theme.set_mode(prefs.load_prefs().get("theme", "system"), self)
+
+        self._build_shell()
         self._init_font()
+        self.apply_language()
+        self.navigate("home")
 
-        self.bind_all("<Control-h>", self._open_rename_window_event)
-        self.bind_all("<Control-H>", self._open_rename_window_event)
+        self.bind_all("<Control-h>", lambda e: self.navigate("terms"))
 
-        threading.Thread(target=self._check_for_update, daemon=True).start()
+        if prefs.load_prefs().get("check_updates_on_startup", True):
+            threading.Thread(target=self._check_for_update, daemon=True).start()
+
+    # ---------- 글꼴 ----------
 
     def _init_font(self):
         available = fonts.list_available_fonts()
         saved = prefs.load_prefs().get("font_family")
         initial = saved if saved in available else fonts.resolve_default_font(self.lang, available)
         fonts.apply_font_family(initial)
-        if initial in available:
-            self.combo_font.set(initial)
+        self._content_font_family = initial
+        settings = self._pages.get("settings")
+        if settings is not None:
+            settings.sync_from_app()
 
-    def _on_font_selected(self, _event=None):
-        family = self.combo_font.get()
+    def on_font_selected(self, family):
         fonts.apply_font_family(family)
         prefs.set_pref("font_family", family)
+        self._content_font_family = family
+
+    def on_theme_selected(self, mode):
+        prefs.set_pref("theme", mode)
+        theme.set_mode(mode, self)
+
+    def on_lang_selected(self, code):
+        self.lang = code
+        self.apply_language()
+
+    def t(self, key, **kwargs):
+        text = STRINGS[self.lang][key]
+        return text.format(**kwargs) if kwargs else text
+
+    def apply_language(self):
+        self.title(self.t("window_title"))
+        self.sidebar.apply_language()
+        self._update_header_caption()
+        for page in self._pages.values():
+            if hasattr(page, "apply_language"):
+                page.apply_language()
+
+    # ---------- 업데이트 확인 ----------
 
     def _check_for_update(self):
         result = update_checker.check_for_update(__version__)
@@ -91,135 +147,87 @@ class App(tk.Tk):
             self.after(0, self._show_update_notice, latest_tag, url)
 
     def _show_update_notice(self, latest_tag, url):
-        if messagebox.askyesno(
-            self.t("update_available_title"),
+        if dialogs.ask_yes_no(
+            self, self.t("update_available_title"),
             self.t("update_available_body", latest=latest_tag, current=__version__),
         ):
             webbrowser.open(url)
 
-    def t(self, key, **kwargs):
-        text = STRINGS[self.lang][key]
-        return text.format(**kwargs) if kwargs else text
+    # ---------- 화면 구성 ----------
 
-    def _build_widgets(self):
-        frm_lang = ttk.Frame(self)
-        frm_lang.pack(fill="x", padx=10, pady=(10, 0))
-        self.lbl_lang = ttk.Label(frm_lang, text="")
-        self.lbl_lang.pack(side="left")
-        lang_names = [name for name, _ in LANGUAGES]
-        self.combo_lang = ttk.Combobox(frm_lang, values=lang_names, state="readonly", width=12)
-        self.combo_lang.current(0)
-        self.combo_lang.pack(side="left", padx=6)
-        self.combo_lang.bind("<<ComboboxSelected>>", self._on_lang_selected)
+    def _build_shell(self):
+        self._header = tk.Frame(self, height=38)
+        self._header.pack(fill="x", side="top")
+        self._header.pack_propagate(False)
 
-        self.lbl_font = ttk.Label(frm_lang, text="")
-        self.lbl_font.pack(side="left", padx=(16, 0))
-        self.combo_font = ttk.Combobox(frm_lang, values=fonts.list_available_fonts(), state="readonly", width=24)
-        self.combo_font.pack(side="left", padx=6)
-        self.combo_font.bind("<<ComboboxSelected>>", self._on_font_selected)
+        self._logo_canvas = tk.Canvas(self._header, width=18, height=24, highlightthickness=0)
+        self._logo_canvas.pack(side="left", padx=(14, 8))
 
-        self.frm_split_section = ttk.LabelFrame(self, text="")
-        self.frm_split_section.pack(fill="x", padx=10, pady=10)
-        frm_split_buttons = ttk.Frame(self.frm_split_section)
-        frm_split_buttons.pack(pady=14)
-        self.btn_split = ttk.Button(frm_split_buttons, text="", command=self.open_split_window, width=14)
-        self.btn_split.pack(side="left", padx=8)
-        self.btn_merge = ttk.Button(frm_split_buttons, text="", command=self.open_merge_window, width=14)
-        self.btn_merge.pack(side="left", padx=8)
+        self._wordmark = tk.Label(self._header, text="CORIUNI", font=(theme.HEADING_FONT, 13, "bold"))
+        self._wordmark.pack(side="left")
 
-        self.frm_edit_outer = ttk.Frame(self)
-        self.frm_edit_outer.pack(fill="x", padx=10, pady=(0, 10))
+        self._header_caption = tk.Label(self._header, text="", font=("Segoe UI", 9))
+        self._header_caption.pack(side="left", padx=(12, 0))
 
-        frm_edit_header = ttk.Frame(self.frm_edit_outer)
-        frm_edit_header.pack(fill="x")
-        self.btn_edit_toggle = ttk.Button(frm_edit_header, text="▶", width=3, command=self.toggle_edit_section)
-        self.btn_edit_toggle.pack(side="left")
-        self.lbl_edit_section = ttk.Label(frm_edit_header, text="", font=("", 10, "bold"))
-        self.lbl_edit_section.pack(side="left", padx=6)
+        self._header_version = tk.Label(self._header, text=f"코리우니 {__version__}", font=("Segoe UI", 8))
+        self._header_version.pack(side="right", padx=14)
 
-        self.frm_edit_content = ttk.Frame(self.frm_edit_outer)
-        frm_edit_buttons = ttk.Frame(self.frm_edit_content)
-        frm_edit_buttons.pack(pady=14)
-        self.btn_rename = ttk.Button(frm_edit_buttons, text="", command=self.open_rename_window)
-        self.btn_rename.pack(side="left", padx=6)
-        self.btn_batch_rename = ttk.Button(frm_edit_buttons, text="", command=self.open_batch_rename_window)
-        self.btn_batch_rename.pack(side="left", padx=6)
-        self.btn_convert = ttk.Button(frm_edit_buttons, text="", command=self.open_convert_window)
-        self.btn_convert.pack(side="left", padx=6)
+        body = ttk.Frame(self)
+        body.pack(fill="both", expand=True)
 
-        if self.edit_section_expanded:
-            self.frm_edit_content.pack(fill="x")
+        self.sidebar = sidebar.Sidebar(body, self, active="home")
+        self.sidebar.pack(side="left", fill="y")
 
-    def _on_lang_selected(self, _event=None):
-        name = self.combo_lang.get()
-        code = dict((n, c) for n, c in LANGUAGES).get(name, DEFAULT_LANG)
-        self.lang = code
-        self.apply_language()
+        self._content = ttk.Frame(body)
+        self._content.pack(side="left", fill="both", expand=True)
+        self._content.grid_rowconfigure(0, weight=1)
+        self._content.grid_columnconfigure(0, weight=1)
 
-    def apply_language(self):
-        self.title(self.t("window_title"))
-        self.lbl_lang.configure(text=self.t("lang_label"))
-        self.lbl_font.configure(text=self.t("font_label"))
-        self.frm_split_section.configure(text=self.t("section_split_label"))
-        self.btn_split.configure(text=self.t("run_button"))
-        self.btn_merge.configure(text=self.t("merge_button"))
-        self.lbl_edit_section.configure(text=self.t("section_edit_label"))
-        self.btn_rename.configure(text=self.t("rename_menu_button"))
-        self.btn_batch_rename.configure(text=self.t("batch_rename_button"))
-        self.btn_convert.configure(text=self.t("convert_button"))
+        self._build_pages()
+        theme.subscribe(self)
+        self.refresh_theme()
 
-        for win in list(self._sub_windows):
-            if win.winfo_exists():
-                win.apply_language()
-            else:
-                self._sub_windows.remove(win)
+    def _build_pages(self):
+        self._pages["settings"] = SettingsPage(self._content, self)
+        for key in ("home", "split", "merge", "terms", "batch", "convert"):
+            self._pages[key] = _ComingSoonPage(self._content, self, key)
 
-    def toggle_edit_section(self):
-        self.edit_section_expanded = not self.edit_section_expanded
-        if self.edit_section_expanded:
-            self.frm_edit_content.pack(fill="x")
-            self.btn_edit_toggle.configure(text="▼")
-        else:
-            self.frm_edit_content.pack_forget()
-            self.btn_edit_toggle.configure(text="▶")
+        for page in self._pages.values():
+            page.grid(row=0, column=0, sticky="nsew")
+            page.grid_remove()
 
-    def _open_rename_window_event(self, _event=None):
-        self.open_rename_window()
-
-    def open_rename_window(self):
-        if self._rename_window is not None and self._rename_window.winfo_exists():
-            self._rename_window.lift()
-            self._rename_window.focus_force()
+    def navigate(self, key):
+        if key not in self._pages or key == self._active_page:
+            if key in self._pages:
+                self.sidebar.set_active(key)
             return
-        self._rename_window = RenameWindow(self)
+        if self._active_page is not None:
+            self._pages[self._active_page].grid_remove()
+        self._pages[key].grid()
+        self._active_page = key
+        self.sidebar.set_active(key)
+        self._update_header_caption()
+        page = self._pages[key]
+        if hasattr(page, "on_show"):
+            page.on_show()
 
-    def open_merge_window(self):
-        if self._merge_window is not None and self._merge_window.winfo_exists():
-            self._merge_window.lift()
-            self._merge_window.focus_force()
+    def _update_header_caption(self):
+        if not self._active_page:
             return
-        self._merge_window = MergeWindow(self)
+        ko = self.t(_NAV_KEYS[self._active_page])
+        en = _NAV_CAPTIONS_EN[self._active_page]
+        self._header_caption.configure(text=f"{ko} · {en}")
 
-    def open_split_window(self):
-        if self._split_window is not None and self._split_window.winfo_exists():
-            self._split_window.lift()
-            self._split_window.focus_force()
-            return
-        self._split_window = SplitWindow(self)
-
-    def open_batch_rename_window(self):
-        if self._batch_rename_window is not None and self._batch_rename_window.winfo_exists():
-            self._batch_rename_window.lift()
-            self._batch_rename_window.focus_force()
-            return
-        self._batch_rename_window = BatchRenameWindow(self)
-
-    def open_convert_window(self):
-        if self._convert_window is not None and self._convert_window.winfo_exists():
-            self._convert_window.lift()
-            self._convert_window.focus_force()
-            return
-        self._convert_window = ConvertWindow(self)
+    def refresh_theme(self):
+        t = theme.tokens()
+        self._header.configure(bg=t["bg"], highlightthickness=1, highlightbackground=t["divider"])
+        self._wordmark.configure(bg=t["bg"], fg=t["text"])
+        self._header_caption.configure(bg=t["bg"], fg=t["neutral_600"])
+        self._header_version.configure(bg=t["bg"], fg=t["neutral_600"])
+        self._logo_canvas.configure(bg=t["bg"])
+        self._logo_canvas.delete("all")
+        self._logo_canvas.create_rectangle(3, 6, 15, 18, outline=t["accent"])
+        self._logo_canvas.create_line(9, 1, 9, 23, fill=t["accent"])
 
 
 if __name__ == "__main__":
