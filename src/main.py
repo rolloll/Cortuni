@@ -24,6 +24,7 @@ import prefs
 import sidebar
 import theme
 import update_checker
+from batch_page import BatchPage
 from convert_page import ConvertPage
 from i18n import STRINGS
 from merge_page import MergePage
@@ -195,7 +196,8 @@ class App(TkinterDnD.Tk):
         self._pages["split"] = SplitPage(self._content, self)
         self._pages["merge"] = MergePage(self._content, self)
         self._pages["convert"] = ConvertPage(self._content, self)
-        for key in ("home", "terms", "batch"):
+        self._pages["batch"] = BatchPage(self._content, self)
+        for key in ("home", "terms"):
             self._pages[key] = _ComingSoonPage(self._content, self, key)
 
         for page in self._pages.values():
