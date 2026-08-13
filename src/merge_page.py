@@ -608,3 +608,11 @@ class MergePage(ttk.Frame):
 
     def on_show(self):
         pass
+
+    # ---------- 홈 화면 드롭존 등 다른 곳에서 파일을 받았을 때 ----------
+
+    def add_paths_from_outside(self, paths):
+        for path in paths:
+            ext = os.path.splitext(path)[1].lower()
+            if ext in SUPPORTED_EXTS:
+                self._add_file_path(path)

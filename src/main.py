@@ -26,6 +26,7 @@ import theme
 import update_checker
 from batch_page import BatchPage
 from convert_page import ConvertPage
+from home_page import HomePage
 from i18n import STRINGS
 from merge_page import MergePage
 from settings_page import SettingsPage
@@ -56,21 +57,6 @@ def resource_path(relative_path):
     else:
         base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, "assets", relative_path)
-
-
-class _ComingSoonPage(ttk.Frame):
-    """아직 새 디자인으로 옮기지 않은 화면의 임시 자리표시자. 포팅되면 지운다."""
-
-    def __init__(self, parent, app, key):
-        super().__init__(parent)
-        self.app = app
-        self.key = key
-        self.lbl = ttk.Label(self, style="Heading.TLabel")
-        self.lbl.place(relx=0.5, rely=0.5, anchor="center")
-        self.apply_language()
-
-    def apply_language(self):
-        self.lbl.configure(text=f"{self.app.t(_NAV_KEYS[self.key])} — coming soon")
 
 
 class App(TkinterDnD.Tk):
@@ -199,8 +185,7 @@ class App(TkinterDnD.Tk):
         self._pages["convert"] = ConvertPage(self._content, self)
         self._pages["batch"] = BatchPage(self._content, self)
         self._pages["terms"] = TermsPage(self._content, self)
-        for key in ("home",):
-            self._pages[key] = _ComingSoonPage(self._content, self, key)
+        self._pages["home"] = HomePage(self._content, self)
 
         for page in self._pages.values():
             page.grid(row=0, column=0, sticky="nsew")
