@@ -30,6 +30,7 @@ from i18n import STRINGS
 from merge_page import MergePage
 from settings_page import SettingsPage
 from split_page import SplitPage
+from terms_page import TermsPage
 from version import __version__
 
 DEFAULT_LANG = "ko"
@@ -197,7 +198,8 @@ class App(TkinterDnD.Tk):
         self._pages["merge"] = MergePage(self._content, self)
         self._pages["convert"] = ConvertPage(self._content, self)
         self._pages["batch"] = BatchPage(self._content, self)
-        for key in ("home", "terms"):
+        self._pages["terms"] = TermsPage(self._content, self)
+        for key in ("home",):
             self._pages[key] = _ComingSoonPage(self._content, self, key)
 
         for page in self._pages.values():
