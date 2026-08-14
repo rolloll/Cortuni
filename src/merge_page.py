@@ -16,6 +16,8 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, ttk
 
+from tkinterdnd2 import DND_FILES
+
 import dialogs
 import fonts
 import merge_apply
@@ -50,6 +52,10 @@ class MergePage(ttk.Frame):
         theme.subscribe(self)
         self.refresh_theme()
 
+        # 탐색기 등에서 파일을 끌어다 이 페이지 어디에든 놓으면 목록에 추가된다.
+        self.drop_target_register(DND_FILES)
+        self.dnd_bind("<<Drop>>", self._on_drop)
+
     def t(self, key, **kwargs):
         return self.app.t(key, **kwargs)
 
@@ -68,19 +74,28 @@ class MergePage(ttk.Frame):
         self.lbl_title.pack(anchor="w")
         ttk.Label(header, text="Merge in order, with optional titles", style="Caption.TLabel").pack(anchor="w")
 
-        body = ttk.Frame(self)
-        body.grid(row=1, column=0, sticky="nsew")
-        body.grid_rowconfigure(0, weight=1)
-        body.grid_columnconfigure(1, weight=1)
+        # 왼쪽(파일 목록·설정)/오른쪽(미리보기) 폭을 엑셀 열처럼 마우스로 드래그해서
+        # 나눌 수 있게 PanedWindow를 쓴다. 창 자체를 늘리면 늘어난 공간은 항상
+        # 오른쪽(미리보기)이 먼저 가져간다 - 사용자가 직접 드래그하기 전까지는
+        # 이전과 같은 비율로 보인다.
+        self.body = tk.PanedWindow(
+            self, orient="horizontal", sashwidth=6, sashpad=0, sashrelief="flat",
+            showhandle=False, opaqueresize=True, bd=0,
+        )
+        self.body.grid(row=1, column=0, sticky="nsew", padx=26)
 
-        left = ttk.Frame(body, width=560)
-        left.grid(row=0, column=0, sticky="nsew", padx=(26, 18), pady=16)
+        left = ttk.Frame(self.body)
         left.grid_rowconfigure(1, weight=1)
 
-        right = ttk.Frame(body)
-        right.grid(row=0, column=1, sticky="nsew", padx=(0, 26), pady=16)
+        right = ttk.Frame(self.body)
         right.grid_rowconfigure(1, weight=1)
         right.grid_columnconfigure(0, weight=1)
+
+        # minsize는 각 칸이 그 밑으로는 드래그해도 안 줄어드는 하한선 - 오른쪽은
+        # 미리보기 헤더(제목+캡션+태그+새로고침) 한 줄이 항상 들어갈 만큼, 왼쪽은
+        # 파일 목록 표(체크·순서·파일명·제목 4개 열)가 너무 뭉개지지 않을 만큼으로 잡는다.
+        self.body.add(left, width=560, minsize=460, stretch="never", padx=9, pady=16)
+        self.body.add(right, minsize=340, stretch="always", padx=9, pady=16)
 
         self._build_left(left)
         self._build_right(right)
@@ -231,6 +246,7 @@ class MergePage(ttk.Frame):
     def refresh_theme(self):
         self._configure_preview_tags()
         t = theme.tokens()
+        self.body.configure(bg=t["bg"])
         self.preview_text.configure(
             bg=t["bg"], fg=t["text"], insertbackground=t["accent"],
             selectbackground=t["accent_200"], selectforeground=t["accent_800"],
@@ -616,3 +632,11 @@ class MergePage(ttk.Frame):
             ext = os.path.splitext(path)[1].lower()
             if ext in SUPPORTED_EXTS:
                 self._add_file_path(path)
+
+    def _on_drop(self, event):
+        """탐색기 등 외부 창에서 이 페이지 위로 파일(여러 개 가능)을 끌어다 놓았을 때."""
+        try:
+            paths = list(self.tk.splitlist(event.data))
+        except Exception:
+            paths = [event.data]
+        self.add_paths_from_outside(paths)

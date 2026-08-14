@@ -14,6 +14,8 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, ttk
 
+from tkinterdnd2 import DND_FILES
+
 import convert_apply
 import dialogs
 import fonts
@@ -50,6 +52,11 @@ class SplitPage(ttk.Frame):
         theme.subscribe(self)
         self.refresh_theme()
 
+        # 창 어디에 놓아도 파일이 바뀌게(lbl_drop_hint에 이미 적혀 있던 약속) - 페이지
+        # 프레임 하나에만 등록해도 그 위에 얹힌 자식 위젯 영역까지 놓기 대상이 된다.
+        self.drop_target_register(DND_FILES)
+        self.dnd_bind("<<Drop>>", self._on_drop)
+
     def t(self, key, **kwargs):
         return self.app.t(key, **kwargs)
 
@@ -58,6 +65,7 @@ class SplitPage(ttk.Frame):
 
     def refresh_theme(self):
         t = theme.tokens()
+        self.body.configure(bg=t["bg"])
         self.lbl_file_badge.configure(bg=t["bg"], fg=t["accent_700"], highlightthickness=1, highlightbackground=t["accent"])
         card_bg = t["accent_100"]
         self.estimate_card._tint = card_bg
@@ -89,25 +97,45 @@ class SplitPage(ttk.Frame):
         self.lbl_caption = ttk.Label(header, text="Split one document, never mid-sentence", style="Caption.TLabel")
         self.lbl_caption.pack(anchor="w")
 
-        body = ttk.Frame(self)
-        body.grid(row=1, column=0, sticky="nsew")
-        body.grid_rowconfigure(0, weight=1)
-        body.grid_columnconfigure(1, weight=1)
+        # 왼쪽(설정)/오른쪽(미리보기) 폭을 엑셀 열처럼 마우스로 드래그해서 나눌 수
+        # 있게 PanedWindow를 쓴다. 창 자체를 늘리면 늘어난 공간은 항상 오른쪽
+        # (미리보기)이 먼저 가져간다(stretch="never"/"always") - 사용자가 직접
+        # 드래그하기 전까지는 이전과 같은 비율로 보인다.
+        self.body = tk.PanedWindow(
+            self, orient="horizontal", sashwidth=6, sashpad=0, sashrelief="flat",
+            showhandle=False, opaqueresize=True, bd=0,
+        )
+        self.body.grid(row=1, column=0, sticky="nsew", padx=26)
 
-        left = ttk.Frame(body, width=420)
-        left.grid(row=0, column=0, sticky="ns", padx=(26, 18), pady=16)
+        left = ttk.Frame(self.body)
+        # 왼쪽 설정들을 그냥 쌓기만 하면(pack(fill="x")), 로그 서랍이 열리거나 창이
+        # 작아져서 실제 세로 공간이 모자랄 때 아래쪽 위젯이 창 밖으로 밀리거나
+        # 짓눌려 글자가 겹쳐 보인다 - ScrollableFrame으로 감싸서 공간이 얼마가 됐든
+        # 스크롤로 항상 전부 접근 가능하게 한다("분할 단위"가 가려지면 안 됨).
+        left.pack_propagate(False)
+        self._left_scroll = left_scroll = widgets.ScrollableFrame(left)
+        left_scroll.pack(fill="both", expand=True)
 
-        right = ttk.Frame(body)
-        right.grid(row=0, column=1, sticky="nsew", padx=(0, 26), pady=16)
+        right = ttk.Frame(self.body)
         right.grid_rowconfigure(1, weight=1)
         right.grid_columnconfigure(0, weight=1)
 
-        self._build_left(left)
+        # minsize는 각 칸이 그 밑으로는 드래그해도 안 줄어드는 하한선 - 오른쪽은
+        # 미리보기 헤더(제목+캡션+새로고침) 한 줄이 항상 들어갈 만큼, 왼쪽은
+        # "저장 형식"/"분할 단위" 세그먼트 버튼 한 줄이 안 잘릴 만큼으로 잡는다.
+        self.body.add(left, width=420, minsize=400, stretch="never", padx=9, pady=16)
+        self.body.add(right, minsize=340, stretch="always", padx=9, pady=16)
+
+        self._build_left(left_scroll.content)
         self._build_right(right)
         self._build_bottom()
 
     def _build_left(self, left):
-        file_card = widgets.BlueprintFrame(left)
+        # height를 안 주면 Canvas 기본 높이(내용보다 훨씬 큼)를 그대로 쓰게 되어
+        # 배지/파일명/버튼 한 줄 밑에 빈 공간이 크게 남는다 - 내용에 맞는 높이로
+        # 시작하되, resizable=True로 아래쪽 가장자리를 드래그해 직접 늘리거나
+        # 줄일 수 있게 한다.
+        self._file_card = file_card = widgets.BlueprintFrame(left, resizable=True, min_height=70, max_height=300, height=90)
         file_card.pack(fill="x")
         row = ttk.Frame(file_card.content)
         row.pack(fill="x", padx=12, pady=12)
@@ -628,6 +656,19 @@ class SplitPage(ttk.Frame):
     def load_file_from_outside(self, path):
         """홈 화면 드롭존 등 다른 곳에서 파일을 받았을 때."""
         self._load_file(path)
+
+    def _on_drop(self, event):
+        """탐색기 등 외부 창에서 이 페이지 위로 파일을 끌어다 놓았을 때.
+
+        한 번에 하나만 다루는 화면이라, 여러 개를 놓아도 첫 번째 것만 쓴다
+        (확장자 검증/경고는 _load_file이 choose_file과 똑같이 처리한다).
+        """
+        try:
+            paths = list(self.tk.splitlist(event.data))
+        except Exception:
+            paths = [event.data]
+        if paths:
+            self._load_file(paths[0])
 
     def on_show(self):
         pass

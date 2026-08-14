@@ -70,7 +70,10 @@ class App(TkinterDnD.Tk):
         winchrome.enable_dpi_awareness()
         prefs.migrate_from_old_app_name()
         super().__init__()
-        self.geometry("1240x780")
+        # 높이는 Split 페이지 왼쪽 패널(파일 카드부터 예상 결과 카드까지)이 스크롤
+        # 없이 한 번에 다 보이는 정도로 잡는다 - 스크롤 자체는 ScrollableFrame이
+        # 항상 보장하지만, 기본 크기에서부터 스크롤해야 한다면 첫인상이 나쁘다.
+        self.geometry("1240x960")
         # split/merge/terms 페이지는 왼쪽 패널 폭이 고정(420~560px)이라, 오른쪽 미리보기
         # 헤더(제목+캡션+개수 태그+새로고침 버튼)가 줄어들 수 있는 폭이 그만큼밖에 없다.
         # 980이면 가장 넓은 왼쪽 패널(병합, 560px)을 뺀 나머지가 그 헤더 한 줄도 못 담을
