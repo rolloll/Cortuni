@@ -17,16 +17,17 @@ import theme
 import widgets
 from formats import SUPPORTED_EXTS
 
-_CARD_KEYS = ("split", "merge", "terms", "batch", "convert")
+_CARD_KEYS = ("split", "merge", "batch", "convert")
 _CARD_CAPTIONS = {
     "split": ("Split", "문장을 자르지 않고 글자 수·크기·개수로 나눕니다."),
     "merge": ("Merge", "순서를 정하고 제목을 붙여 하나로 합칩니다."),
-    "terms": ("Terms", "조사까지 자동 교정하며 호칭을 바꿉니다."),
+    # "terms": ("Terms", "조사까지 자동 교정하며 호칭을 바꿉니다."),  # 이름·호칭 기능 비활성화
     "batch": ("Batch rename", "패턴이나 CSV로 파일명을 한 번에 바꿉니다."),
     "convert": ("Convert", "txt · docx · hwpx 사이를 오갑니다."),
 }
 _NAV_KEYS = {
-    "split": "nav_split", "merge": "nav_merge", "terms": "nav_terms",
+    "split": "nav_split", "merge": "nav_merge",
+    # "terms": "nav_terms",  # 이름·호칭 기능 비활성화
     "batch": "nav_batch", "convert": "nav_convert",
 }
 

@@ -13,9 +13,9 @@ from txt_handler import split_txt_file
 from docx_handler import split_docx_file
 from hwpx_handler import split_hwpx_file
 
-import josa
-import rename_apply
-from term_dict import TermDict
+# import josa  # 이름·호칭 기능 비활성화
+# import rename_apply  # 이름·호칭 기능 비활성화
+# from term_dict import TermDict  # 이름·호칭 기능 비활성화
 import merge_apply
 import convert_apply
 import batch_rename_apply
@@ -80,19 +80,20 @@ def main():
     check_no_mid_sentence_cut(chunk_texts, full_text_hwpx)
     print(f"[OK] hwpx (chunks={len(out_paths)})")
 
-    assert josa.correct_particle("은", "언니") == "는"
-    assert josa.correct_particle("는", "형") == "은"
-    assert josa.correct_particle("으로", "달") == "로"
-
-    dict_path = os.path.join(tmp, "terms.csv")
-    td = TermDict(path=dict_path)
-    assert len(td.entries) > 50, "기본 호칭어 시딩 실패"
-    td.add("형", "언니")
-    mapping = td.active_mapping([])
-    assert mapping.get("형") == "언니"
-    renamed = rename_apply.apply_to_text("형은 학교에 갔다.", mapping)
-    assert renamed == "언니는 학교에 갔다.", renamed
-    print("[OK] josa/term_dict/rename_apply")
+    # 이름·호칭 기능 비활성화 - josa/term_dict/rename_apply 테스트도 함께 뺐다.
+    # assert josa.correct_particle("은", "언니") == "는"
+    # assert josa.correct_particle("는", "형") == "은"
+    # assert josa.correct_particle("으로", "달") == "로"
+    #
+    # dict_path = os.path.join(tmp, "terms.csv")
+    # td = TermDict(path=dict_path)
+    # assert len(td.entries) > 50, "기본 호칭어 시딩 실패"
+    # td.add("형", "언니")
+    # mapping = td.active_mapping([])
+    # assert mapping.get("형") == "언니"
+    # renamed = rename_apply.apply_to_text("형은 학교에 갔다.", mapping)
+    # assert renamed == "언니는 학교에 갔다.", renamed
+    # print("[OK] josa/term_dict/rename_apply")
 
     m1 = os.path.join(tmp, "m1.txt")
     m2 = os.path.join(tmp, "m2.txt")
@@ -132,6 +133,35 @@ def main():
     docx_back = convert_apply.convert_file(hwpx_conv, ".docx", tmp)
     assert "".join(p.text for p in Document(docx_back).paragraphs) == "첫 번째 내용"
     print("[OK] convert_apply (docx<->hwpx 포함)")
+
+    # 분할/병합 결과를 원본과 다른 확장자로 저장하는 기능 (merge_apply.merge_files의
+    # output_path 확장자 분기, split_page._convert_outputs와 같은 절차).
+    merged_hwpx = os.path.join(tmp, "merged_as_hwpx.hwpx")
+    merge_apply.merge_files([{"path": m1, "title": "프롤로그"}, {"path": m2, "title": ""}], merged_hwpx)
+    assert os.path.isfile(merged_hwpx)
+    merged_text = "\n".join(p.text for p in HwpxDocument.open(merged_hwpx).paragraphs)
+    assert "첫 번째 내용" in merged_text and "두 번째 내용" in merged_text and "프롤로그" in merged_text
+    print("[OK] merge_apply (txt 입력 -> hwpx로 저장)")
+
+    long_text = "이것은 문장입니다. " * 200
+    hdoc = HwpxDocument.new()
+    default_paragraphs = list(hdoc.paragraphs)
+    hdoc.add_paragraph(long_text)
+    for p in default_paragraphs:
+        p.remove()
+    split_src_hwpx = os.path.join(tmp, "split_src.hwpx")
+    hdoc.save_to_path(split_src_hwpx)
+    native_parts = split_hwpx_file(split_src_hwpx, 500, tmp)
+    assert len(native_parts) > 1
+    txt_parts = []
+    for p in native_parts:
+        converted = convert_apply.convert_file(p, ".txt", tmp)
+        os.remove(p)
+        txt_parts.append(converted)
+    for p in txt_parts:
+        with open(p, encoding="utf-8-sig") as f:
+            assert f.read().strip(), f"empty part: {p}"
+    print("[OK] hwpx 분할 결과를 txt로 저장")
 
     r1 = os.path.join(tmp, "r1.txt")
     with open(r1, "w", encoding="utf-8") as f:

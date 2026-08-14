@@ -32,18 +32,20 @@ from i18n import STRINGS
 from merge_page import MergePage
 from settings_page import SettingsPage
 from split_page import SplitPage
-from terms_page import TermsPage
+# from terms_page import TermsPage  # 이름·호칭 기능 비활성화 - terms_page.py 참고
 from version import __version__
 
 DEFAULT_LANG = "ko"
 
 _NAV_CAPTIONS_EN = {
-    "home": "Home", "split": "Split", "merge": "Merge", "terms": "Terms",
+    "home": "Home", "split": "Split", "merge": "Merge",
     "batch": "Batch rename", "convert": "Convert", "settings": "Settings",
+    # "terms": "Terms",  # 이름·호칭 기능 비활성화
 }
 _NAV_KEYS = {
-    "home": "nav_home", "split": "nav_split", "merge": "nav_merge", "terms": "nav_terms",
+    "home": "nav_home", "split": "nav_split", "merge": "nav_merge",
     "batch": "nav_batch", "convert": "nav_convert", "settings": "nav_settings",
+    # "terms": "nav_terms",  # 이름·호칭 기능 비활성화
 }
 
 
@@ -68,8 +70,13 @@ class App(TkinterDnD.Tk):
         winchrome.enable_dpi_awareness()
         prefs.migrate_from_old_app_name()
         super().__init__()
-        self.geometry("1180x760")
-        self.minsize(980, 640)
+        self.geometry("1240x780")
+        # split/merge/terms 페이지는 왼쪽 패널 폭이 고정(420~560px)이라, 오른쪽 미리보기
+        # 헤더(제목+캡션+개수 태그+새로고침 버튼)가 줄어들 수 있는 폭이 그만큼밖에 없다.
+        # 980이면 가장 넓은 왼쪽 패널(병합, 560px)을 뺀 나머지가 그 헤더 한 줄도 못 담을
+        # 만큼 좁아져서 버튼 글자가 창 오른쪽 끝에서 잘렸다 - 그 조합이 항상 들어갈
+        # 최소값으로 올린다.
+        self.minsize(1200, 640)
 
         try:
             self._icon_images = [
@@ -96,7 +103,7 @@ class App(TkinterDnD.Tk):
         self.apply_language()
         self.navigate("home")
 
-        self.bind_all("<Control-h>", lambda e: self.navigate("terms"))
+        # self.bind_all("<Control-h>", lambda e: self.navigate("terms"))  # 이름·호칭 기능 비활성화
 
         if prefs.load_prefs().get("check_updates_on_startup", True):
             threading.Thread(target=self._check_for_update, daemon=True).start()
@@ -193,7 +200,7 @@ class App(TkinterDnD.Tk):
         self._pages["merge"] = MergePage(self._content, self)
         self._pages["convert"] = ConvertPage(self._content, self)
         self._pages["batch"] = BatchPage(self._content, self)
-        self._pages["terms"] = TermsPage(self._content, self)
+        # self._pages["terms"] = TermsPage(self._content, self)  # 이름·호칭 기능 비활성화
         self._pages["home"] = HomePage(self._content, self)
 
         for page in self._pages.values():

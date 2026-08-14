@@ -11,10 +11,15 @@ blank_lines: 파일과 파일 사이에 넣을 빈 줄 수 (0 = 줄바꿈만, 1 
 header_bold / header_italic: 제목 줄에 적용할 서식
 page_break: 파일 사이에 페이지 나누기를 넣을지 여부. hwpx/docx만 지원하며,
 (txt에는 서식·페이지 개념이 없으므로 둘 다 무시된다).
+
+merge_files()의 output_path 확장자가 입력 파일들의 확장자와 다르면(예: txt 20개를
+hwpx로 저장), 입력 확장자로 먼저 병합한 뒤 convert_apply의 변환기로 최종 확장자로
+바꾼다 - 병합 자체는 항상 입력과 같은 형식으로 하고, 형식을 바꾸는 건 별도 단계다.
 """
 
 import copy
 import os
+import tempfile
 
 from docx import Document
 from docx.enum.text import WD_BREAK
@@ -184,8 +189,7 @@ def merge_hwpx_files(
     dest.save_to_path(output_path)
 
 
-def merge_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, page_break=False):
-    ext = common_extension(entries)
+def _merge_native(entries, output_path, ext, blank_lines, header_bold, header_italic, page_break):
     if ext == ".txt":
         merge_txt_files(entries, output_path, blank_lines=blank_lines)
     elif ext == ".docx":
@@ -200,6 +204,29 @@ def merge_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bo
         )
     else:
         raise ValueError(f"지원하지 않는 형식입니다: {ext}")
+
+
+def merge_files(entries, output_path, blank_lines=DEFAULT_BLANK_LINES, header_bold=True, header_italic=False, page_break=False):
+    ext = common_extension(entries)
+    target_ext = os.path.splitext(output_path)[1].lower()
+
+    if target_ext == ext:
+        _merge_native(entries, output_path, ext, blank_lines, header_bold, header_italic, page_break)
+        return
+
+    # 저장할 파일의 확장자가 입력 파일들과 다르다 (예: txt 20개 -> hwpx 1개) - 지연
+    # import로 convert_apply를 가져온다. convert_apply.py가 이 모듈의 read_plain_text를
+    # 가져다 쓰므로, 모듈 맨 위에서 바로 import하면 순환 import가 된다.
+    from convert_apply import CONVERTERS
+
+    converter = CONVERTERS.get((ext, target_ext))
+    if converter is None:
+        raise ValueError(f"'{ext}' -> '{target_ext}' 변환은 지원하지 않습니다.")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        temp_path = os.path.join(tmp, f"_merged{ext}")
+        _merge_native(entries, temp_path, ext, blank_lines, header_bold, header_italic, page_break)
+        converter(temp_path, output_path)
 
 
 # ---------- 미리보기 ----------

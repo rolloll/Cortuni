@@ -12,19 +12,22 @@ import theme
 WIDTH = 208
 
 GROUP_A = (("home", "H"), ("split", "S"), ("merge", "M"))
-GROUP_B = (("terms", "T"), ("batch", "B"), ("convert", "C"))
+# GROUP_B에는 원래 ("terms", "T")가 맨 앞에 있었다 - 이름·호칭 기능 비활성화.
+GROUP_B = (("batch", "B"), ("convert", "C"))
 GROUP_C = (("settings", "⚙"),)
 
 _NAV_KEYS = {
     "home": "nav_home", "split": "nav_split", "merge": "nav_merge",
-    "terms": "nav_terms", "batch": "nav_batch", "convert": "nav_convert",
+    "batch": "nav_batch", "convert": "nav_convert",
     "settings": "nav_settings",
+    # "terms": "nav_terms",  # 이름·호칭 기능 비활성화
 }
 # 항상 영어인 장식용 소캡션 - 언어 설정과 무관하게 디자인 시스템 고유의 표기.
 _NAV_CAPTIONS = {
     "home": "Home", "split": "Split", "merge": "Merge",
-    "terms": "Terms", "batch": "Batch rename", "convert": "Convert",
+    "batch": "Batch rename", "convert": "Convert",
     "settings": "Settings",
+    # "terms": "Terms",  # 이름·호칭 기능 비활성화
 }
 
 

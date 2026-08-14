@@ -14,6 +14,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, ttk
 
+import convert_apply
 import dialogs
 import fonts
 import splitter
@@ -35,6 +36,7 @@ class SplitPage(ttk.Frame):
 
         self.file_path = tk.StringVar()
         self.output_dir = tk.StringVar()
+        self.output_format = tk.StringVar(value="same")
         self.split_mode = tk.StringVar(value="chars")
         self.chunk_kb = tk.StringVar(value="100")
         self.chunk_count = tk.StringVar(value="5")
@@ -135,6 +137,17 @@ class SplitPage(ttk.Frame):
         ttk.Entry(out_row, textvariable=self.output_dir).pack(side="left", fill="x", expand=True, padx=(0, 6))
         self.btn_output = ttk.Button(out_row, style="Secondary.TButton", command=self.choose_output_dir)
         self.btn_output.pack(side="left")
+
+        format_frame = ttk.Frame(left)
+        format_frame.pack(fill="x", pady=(0, 14))
+        self.lbl_format_section = ttk.Label(format_frame, style="Heading.TLabel")
+        self.lbl_format_section.pack(anchor="w", pady=(0, 7))
+        self.seg_format = widgets.Segmented(
+            format_frame,
+            [("same", ""), ("txt", "TXT"), ("docx", "DOCX"), ("hwpx", "HWPX")],
+            self.output_format,
+        )
+        self.seg_format.pack(anchor="w")
 
         mode_frame = ttk.Frame(left)
         mode_frame.pack(fill="x", pady=(0, 14))
@@ -244,7 +257,12 @@ class SplitPage(ttk.Frame):
             ("count", self.t("split_mode_count_label")),
             ("chars", self.t("split_mode_chars_label")),
         ]
-        self._rebuild_seg_labels()
+        self._rebuild_seg_labels(self.seg_mode)
+        self.lbl_format_section.configure(text=self.t("output_format_label"))
+        self.seg_format.options = [
+            ("same", self.t("output_format_same")), ("txt", "TXT"), ("docx", "DOCX"), ("hwpx", "HWPX"),
+        ]
+        self._rebuild_seg_labels(self.seg_format)
         self.lbl_estimate_caption.configure(text="예상 결과\nEstimate")
         self._est_files_lbl.configure(text="파일 / files")
         self._est_chars_lbl.configure(text="평균 글자 / avg chars")
@@ -258,10 +276,10 @@ class SplitPage(ttk.Frame):
         self._update_file_display()
         self._update_last_run(None)
 
-    def _rebuild_seg_labels(self):
+    def _rebuild_seg_labels(self, seg):
         # Segmented의 라벨은 생성 시 버튼 텍스트로 굳어지므로, 언어가 바뀌면 버튼 텍스트를 직접 갱신한다.
-        labels = dict(self.seg_mode.options)
-        for value, btn in self.seg_mode._buttons:
+        labels = dict(seg.options)
+        for value, btn in seg._buttons:
             btn.configure(text=labels.get(value, value))
 
     # ---------- 파일/출력 폴더 ----------
@@ -542,12 +560,28 @@ class SplitPage(ttk.Frame):
         state = "disabled" if running else "normal"
         for widget in (self.btn_run, self.btn_refresh, self.btn_file, self.btn_output):
             widget.configure(state=state)
-        for _value, seg_btn in self.seg_mode._buttons:
-            seg_btn.configure(state=state)
+        for seg in (self.seg_mode, self.seg_format):
+            for _value, seg_btn in seg._buttons:
+                seg_btn.configure(state=state)
         self.entry_value.configure(state="disabled" if running else "normal")
+
+    def _target_ext(self, source_ext):
+        """선택한 저장 형식에 맞는 확장자('.txt' 등). "원본과 동일"이면 source_ext 그대로."""
+        fmt = self.output_format.get()
+        return source_ext if fmt == "same" else f".{fmt}"
+
+    def _convert_outputs(self, paths, target_ext, out_dir):
+        """분할로 나온 파일들(원본 형식)을 target_ext로 바꾸고, 원본 형식 중간 파일은 지운다."""
+        converted = []
+        for p in paths:
+            new_path = convert_apply.convert_file(p, target_ext, out_dir)
+            os.remove(p)
+            converted.append(new_path)
+        return converted
 
     def _do_split(self, path, chunker, out_dir):
         ext = os.path.splitext(path)[1].lower()
+        target_ext = self._target_ext(ext)
         created = []
         try:
             if ext == ".txt":
@@ -559,6 +593,10 @@ class SplitPage(ttk.Frame):
                 out_paths = split_hwpx_file(path, chunker, out_dir)
             else:
                 raise ValueError(self.t("unsupported_body", ext=ext))
+
+            if target_ext != ext:
+                out_paths = self._convert_outputs(out_paths, target_ext, out_dir)
+
             created = out_paths
 
             for p in out_paths:
