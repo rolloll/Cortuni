@@ -62,6 +62,7 @@ class Sidebar(tk.Frame):
 
         bottom = tk.Frame(self)
         bottom.pack(side="bottom", fill="x", pady=(10, 12))
+        self._bottom = bottom
         sep = tk.Frame(bottom, height=1)
         sep.pack(fill="x", padx=16, pady=(0, 10))
         self._separator = sep
@@ -118,13 +119,21 @@ class Sidebar(tk.Frame):
         for child in self.winfo_children():
             child.destroy()
         self._build()
-        self._recolor()
+        # _build()가 배경색 없이 새로 만드므로 _recolor()(활성 항목만 다시 칠함)로는
+        # 부족하다 - refresh_theme()로 전체를 다시 테마에 맞춰야 방금 고친 흰 줄
+        # 버그가 언어를 바꿀 때도 되살아나지 않는다.
+        self.refresh_theme()
 
     def refresh_theme(self):
         t = theme.tokens()
         self.configure(bg=t["bg"], highlightbackground=t["divider"], highlightcolor=t["divider"])
         for lbl in self._section_labels:
             lbl.configure(bg=t["bg"], fg=t["neutral_600"])
+        # "bottom"은 구분선과 설정 항목을 담는 그릇일 뿐이라 자기 배경은 한 번도
+        # 안 바뀌었었다 - 다크 모드에서 그 사이 여백(패딩)이 항상 밝은 기본색으로
+        # 남아 구분선 자리에 흰 줄처럼 보였다.
+        if hasattr(self, "_bottom"):
+            self._bottom.configure(bg=t["bg"])
         if hasattr(self, "_separator"):
             self._separator.configure(bg=t["divider"])
         self._recolor()

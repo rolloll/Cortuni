@@ -45,6 +45,7 @@ class MergePage(ttk.Frame):
         self._filename_sort_applied = False
         self._header_style_var = tk.StringVar(value="bold")
         self.var_page_break = tk.BooleanVar(value=False)
+        self.output_format = tk.StringVar(value="same")
 
         self._build()
         self.apply_language()
@@ -86,6 +87,7 @@ class MergePage(ttk.Frame):
 
         left = ttk.Frame(self.body)
         left.grid_rowconfigure(1, weight=1)
+        left.grid_columnconfigure(0, weight=1)
 
         right = ttk.Frame(self.body)
         right.grid_rowconfigure(1, weight=1)
@@ -115,8 +117,25 @@ class MergePage(ttk.Frame):
         self.btn_import_csv = ttk.Button(actions, style="Ghost.TButton", command=self.on_import_csv)
         self.btn_import_csv.pack(side="right", padx=(0, 4))
 
-        self.tree = ttk.Treeview(left, columns=COLUMNS, show="headings", selectmode="extended", height=14)
-        self.tree.grid(row=1, column=0, sticky="nsew")
+        # 파일 목록 표도 좌우 분할처럼 마우스로 드래그해서 높이를 조절할 수 있게 세로
+        # PanedWindow로 감싼다. 창을 늘리면 늘어난 공간은 항상 표(위 칸)가 먼저 가져가고,
+        # 아래 칸(제목 입력·서식 설정)은 사용자가 직접 끌기 전까지 지금과 같은 높이를 유지한다.
+        self.left_split = tk.PanedWindow(
+            left, orient="vertical", sashwidth=6, sashpad=0, sashrelief="flat",
+            showhandle=False, opaqueresize=True, bd=0,
+        )
+        self.left_split.grid(row=1, column=0, sticky="nsew")
+
+        tree_pane = ttk.Frame(self.left_split)
+        tree_pane.grid_rowconfigure(0, weight=1)
+        tree_pane.grid_columnconfigure(0, weight=1)
+        settings_pane = ttk.Frame(self.left_split)
+        settings_pane.grid_columnconfigure(0, weight=1)
+        self.left_split.add(tree_pane, minsize=120, stretch="always")
+        self.left_split.add(settings_pane, minsize=210, stretch="never")
+
+        self.tree = ttk.Treeview(tree_pane, columns=COLUMNS, show="headings", selectmode="extended", height=14)
+        self.tree.grid(row=0, column=0, sticky="nsew")
         self.tree.column("check", width=36, anchor="center", stretch=False)
         self.tree.column("order", width=44, anchor="center", stretch=False)
         self.tree.column("filename", width=300, anchor="w")
@@ -126,11 +145,17 @@ class MergePage(ttk.Frame):
         self.tree.bind("<B1-Motion>", self._on_drag_motion)
         self.tree.bind("<<TreeviewSelect>>", self._on_selection_changed)
 
-        self.lbl_drag_hint = ttk.Label(left, style="Muted.TLabel", wraplength=520, justify="left")
-        self.lbl_drag_hint.grid(row=2, column=0, sticky="ew", pady=(8, 12))
+        self.lbl_drag_hint = ttk.Label(settings_pane, style="Muted.TLabel", wraplength=520, justify="left")
+        self.lbl_drag_hint.grid(row=0, column=0, sticky="ew", pady=(8, 12))
+        # wraplength=520은 기본 창 크기 기준이라, 아래 칸(settings_pane) 폭이 그보다
+        # 좁아지면(창을 줄이거나 파일 표 쪽으로 사샤시를 끌면) 글자가 잘려 옆 UI와 겹친다.
+        # <Configure>에 이어붙여서 실제 폭이 바뀔 때마다 wraplength를 다시 맞춘다.
+        settings_pane.bind(
+            "<Configure>", lambda e: self.lbl_drag_hint.configure(wraplength=max(100, e.width)), add="+"
+        )
 
-        edit_row = ttk.Frame(left)
-        edit_row.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        edit_row = ttk.Frame(settings_pane)
+        edit_row.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         self.lbl_title_field = ttk.Label(edit_row, style="Heading.TLabel")
         self.lbl_title_field.pack(side="left")
         self.entry_title = ttk.Entry(edit_row, width=26)
@@ -140,8 +165,8 @@ class MergePage(ttk.Frame):
         self.btn_example_csv = ttk.Button(edit_row, style="Ghost.TButton", command=self.on_create_example_csv)
         self.btn_example_csv.pack(side="right")
 
-        settings = ttk.Frame(left)
-        settings.grid(row=4, column=0, sticky="ew", pady=(4, 0))
+        settings = ttk.Frame(settings_pane)
+        settings.grid(row=2, column=0, sticky="ew", pady=(4, 0))
         spacing_col = ttk.Frame(settings)
         spacing_col.pack(side="left")
         self.lbl_spacing = ttk.Label(spacing_col, style="Muted.TLabel")
@@ -159,12 +184,29 @@ class MergePage(ttk.Frame):
         )
         self.seg_header_style.pack(side="left")
 
-        pgbreak_row = ttk.Frame(left)
-        pgbreak_row.grid(row=5, column=0, sticky="ew", pady=(10, 0))
+        format_row = ttk.Frame(settings_pane)
+        format_row.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        self.lbl_output_format = ttk.Label(format_row, style="Muted.TLabel")
+        self.lbl_output_format.pack(side="left", padx=(0, 8))
+        self.seg_output_format = widgets.Segmented(
+            format_row, [("same", ""), ("txt", "TXT"), ("docx", "DOCX"), ("hwpx", "HWPX")],
+            self.output_format, command=lambda _v: self._on_output_format_changed(),
+        )
+        self.seg_output_format.pack(side="left")
+
+        pgbreak_row = ttk.Frame(settings_pane)
+        pgbreak_row.grid(row=4, column=0, sticky="ew", pady=(10, 0))
         self.chk_page_break = ttk.Checkbutton(pgbreak_row, variable=self.var_page_break)
         self.chk_page_break.pack(side="left")
         self.lbl_page_break_hint = ttk.Label(pgbreak_row, style="Muted.TLabel", wraplength=480, justify="left")
         self.lbl_page_break_hint.pack(side="left", padx=(6, 0))
+        # 체크박스 옆에 붙어 있어서 이 라벨이 실제로 쓸 수 있는 폭은 행 전체 폭에서
+        # 체크박스 몫을 뺀 값이다 - 고정값 그대로 두면 행이 좁아질 때 옆으로 삐져나간다.
+        pgbreak_row.bind(
+            "<Configure>",
+            lambda e: self.lbl_page_break_hint.configure(wraplength=max(100, e.width - 40)),
+            add="+",
+        )
 
     def _build_right(self, right):
         header = ttk.Frame(right)
@@ -182,6 +224,10 @@ class MergePage(ttk.Frame):
 
         self.lbl_hwpx_note = ttk.Label(right, style="Muted.TLabel", wraplength=420, justify="left")
         self.lbl_hwpx_note.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        # 미리보기 패널을 마우스로 늘리거나 줄이면(좌우 사샤시 드래그) 이 라벨의 실제
+        # 가용 폭도 함께 바뀐다 - 고정 wraplength로 두면 패널을 좁힐 때 옆(왼쪽) 패널
+        # 위로 글자가 넘쳐 덮어 보인다. <Configure>에 이어붙여 폭이 바뀔 때마다 맞춘다.
+        right.bind("<Configure>", lambda e: self.lbl_hwpx_note.configure(wraplength=max(100, e.width)), add="+")
 
     def _configure_preview_tags(self):
         t = theme.tokens()
@@ -228,6 +274,12 @@ class MergePage(ttk.Frame):
         ]
         for value, btn in self.seg_header_style._buttons:
             btn.configure(text=dict(self.seg_header_style.options)[value])
+        self.lbl_output_format.configure(text=self.t("output_format_label"))
+        self.seg_output_format.options = [
+            ("same", self.t("output_format_same")), ("txt", "TXT"), ("docx", "DOCX"), ("hwpx", "HWPX"),
+        ]
+        for value, btn in self.seg_output_format._buttons:
+            btn.configure(text=dict(self.seg_output_format.options)[value])
         self.chk_page_break.configure(text=self.t("merge_page_break_label"))
         self.lbl_page_break_hint.configure(text=self.t("merge_page_break_hint"))
         self.lbl_output.configure(text=self.t("merge_output_label"))
@@ -247,6 +299,7 @@ class MergePage(ttk.Frame):
         self._configure_preview_tags()
         t = theme.tokens()
         self.body.configure(bg=t["bg"])
+        self.left_split.configure(bg=t["bg"])
         self.preview_text.configure(
             bg=t["bg"], fg=t["text"], insertbackground=t["accent"],
             selectbackground=t["accent_200"], selectforeground=t["accent_800"],
@@ -411,11 +464,35 @@ class MergePage(ttk.Frame):
                 ext = merge_apply.common_extension(self.entries)
             except merge_apply.MixedExtensionError:
                 ext = os.path.splitext(self.entries[0]["path"])[1].lower()
+        target_ext = self._target_ext(ext)
         path = filedialog.asksaveasfilename(
-            title=self.t("merge_choose_save_title"), defaultextension=ext, filetypes=self.t("filetypes")
+            title=self.t("merge_choose_save_title"), defaultextension=target_ext, filetypes=self.t("filetypes")
         )
         if path:
             self.output_path.set(path)
+
+    # ---------- 저장 형식 (분할 화면과 같은 방식) ----------
+    # merge_files()는 output_path 확장자가 입력 확장자와 다르면 알아서 convert_apply로
+    # 변환하므로, 여기선 저장 대화상자의 기본 확장자를 맞춰주고 이미 골라둔 경로가
+    # 있으면 그 확장자만 바꿔주면 된다.
+
+    def _target_ext(self, source_ext):
+        fmt = self.output_format.get()
+        return source_ext if fmt == "same" else f".{fmt}"
+
+    def _on_output_format_changed(self):
+        path = self.output_path.get().strip()
+        if not path:
+            return
+        self._sync_entries_from_tree()
+        if not self.entries:
+            return
+        try:
+            source_ext = merge_apply.common_extension(self.entries)
+        except merge_apply.MixedExtensionError:
+            return
+        base, _old_ext = os.path.splitext(path)
+        self.output_path.set(base + self._target_ext(source_ext))
 
     # ---------- 설정값 읽기 ----------
 
@@ -519,6 +596,8 @@ class MergePage(ttk.Frame):
             self.btn_example_csv, self.btn_apply_selected, self.btn_output,
         ):
             btn.configure(state=state)
+        for _value, seg_btn in self.seg_output_format._buttons:
+            seg_btn.configure(state=state)
 
     def run_merge(self):
         self._sync_entries_from_tree()

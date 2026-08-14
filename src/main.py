@@ -73,7 +73,19 @@ class App(TkinterDnD.Tk):
         # 높이는 Split 페이지 왼쪽 패널(파일 카드부터 예상 결과 카드까지)이 스크롤
         # 없이 한 번에 다 보이는 정도로 잡는다 - 스크롤 자체는 ScrollableFrame이
         # 항상 보장하지만, 기본 크기에서부터 스크롤해야 한다면 첫인상이 나쁘다.
-        self.geometry("1240x960")
+        default_w, default_h = 1240, 960
+        # 노트북처럼 작업 표시줄을 뺀 실제 화면이 기본 크기보다 낮으면, 그대로
+        # 열었을 때 창 아래쪽(저장 경로·실행 버튼 등)이 화면 밖으로 나가 안 보이고,
+        # 사용자가 직접 창을 줄이기 전까진 그 사실도 알 수 없다. 시작할 때부터
+        # 작업 영역에 맞춰 잡아서 항상 다 보이게 한다(최소 크기 밑으로는 안 줄인다).
+        work_area = winchrome.get_work_area()
+        if work_area:
+            max_w, max_h = work_area
+            win_w = min(default_w, max_w)
+            win_h = min(default_h, max(640, max_h - 40))
+        else:
+            win_w, win_h = default_w, default_h
+        self.geometry(f"{win_w}x{win_h}")
         # split/merge/terms 페이지는 왼쪽 패널 폭이 고정(420~560px)이라, 오른쪽 미리보기
         # 헤더(제목+캡션+개수 태그+새로고침 버튼)가 줄어들 수 있는 폭이 그만큼밖에 없다.
         # 980이면 가장 넓은 왼쪽 패널(병합, 560px)을 뺀 나머지가 그 헤더 한 줄도 못 담을

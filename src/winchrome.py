@@ -13,10 +13,30 @@ DPI 인식(enable_dpi_awareness)도 마찬가지로 tkinter가 대신 해주지 
 
 import ctypes
 import sys
+from ctypes import wintypes
 
 _DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 _DWMWA_CAPTION_COLOR = 35
 _DWMWA_TEXT_COLOR = 36
+_SPI_GETWORKAREA = 0x0030
+
+
+def get_work_area():
+    """작업 표시줄을 뺀 주 모니터의 작업 영역을(가로, 세로) 픽셀로 반환한다.
+
+    비-Windows거나 API 호출이 실패하면 None - 호출하는 쪽에서 안전한 기본값으로
+    대체해야 한다(예: 창 기본 크기가 화면보다 커서 아래쪽이 잘리는 것을 막을 때).
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        rect = wintypes.RECT()
+        ok = ctypes.windll.user32.SystemParametersInfoW(_SPI_GETWORKAREA, 0, ctypes.byref(rect), 0)
+        if not ok:
+            return None
+        return rect.right - rect.left, rect.bottom - rect.top
+    except Exception:
+        return None
 
 
 def enable_dpi_awareness():
