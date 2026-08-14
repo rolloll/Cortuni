@@ -16,7 +16,7 @@ Supported formats: `.txt`, `.docx`, `.hwpx`. Legacy `.hwp` (binary) is not suppo
 
 ## For users
 
-Download the latest `Cortuni.exe` from the [Releases](../../releases) page and run it — no installation or Python required.
+Download the latest `Cortuni.zip` from the [Releases](../../releases) page, extract it, and run `Cortuni.exe` inside the extracted folder — no installation or Python required. (It ships as a folder rather than a single `.exe` because unsigned single-file PyInstaller executables get flagged as malware by some antivirus software more often than the folder form does.)
 
 ## For developers
 
@@ -56,18 +56,12 @@ python src/selftest.py
 ### Build the Windows exe
 
 ```
-pyinstaller --noconfirm --onefile --windowed --name Cortuni ^
-  --icon assets/icon.ico ^
-  --add-data "assets/icon.png;assets" ^
-  --add-data "assets/icons;assets/icons" ^
-  --add-data "assets/fonts;assets/fonts" ^
-  --collect-data docx ^
-  --collect-data hwpx ^
-  --collect-all tkinterdnd2 ^
-  src/main.py
+pyinstaller --noconfirm Cortuni.spec
 ```
 
-`--collect-data docx` and `--collect-data hwpx` are required — both libraries ship non-Python template/skeleton files (`python-docx`'s default `.docx` template, `python-hwpx`'s `Skeleton.hwpx`) that PyInstaller won't pick up automatically. `--collect-all tkinterdnd2` bundles its native `tkdnd` component the same way. `--add-data "assets/icons;assets/icons"` ships the 16-256px window/taskbar icon set `main.py` loads via `resource_path()`; `--add-data "assets/fonts;assets/fonts"` does the same for the brand fonts. The output is `dist/Cortuni.exe`.
+`Cortuni.spec` is the tracked, authoritative build config (originally generated from a `pyinstaller --onefile --windowed --name Cortuni --icon assets/icon.ico --add-data ... --collect-data docx --collect-data hwpx --collect-all tkinterdnd2 src/main.py` command, then hand-edited — see below). `--collect-data docx`/`--collect-data hwpx` pick up non-Python template/skeleton files (`python-docx`'s default `.docx` template, `python-hwpx`'s `Skeleton.hwpx`) that PyInstaller won't bundle automatically; `--collect-all tkinterdnd2` does the same for its native `tkdnd` component; the two `--add-data` flags for `assets/icons`/`assets/fonts` ship the window/taskbar icon set and brand fonts that `main.py` loads via `resource_path()`.
+
+The build is **onedir**, not `--onefile`: the output is a `dist/Cortuni/` folder (zip it for distribution) rather than a single exe. An unsigned single-file PyInstaller exe self-extracts to a temp folder on every launch, which looks enough like dropper/loader behavior that some antivirus engines flag it as malware even though nothing's wrong with it; shipping the already-extracted folder avoids that specific false-positive path. This doesn't replace code signing — that's the only real fix for Windows SmartScreen's reputation warning on a brand-new unsigned binary — but it does help with heuristic AV detections.
 
 ### Notes on the sentence-boundary logic
 
